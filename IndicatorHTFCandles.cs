@@ -51,43 +51,45 @@ namespace POWER_OF_THREE
         [InputParameter("Bar Width (px)", 17)]
         public int CustomBarWidth { get; set; } = 12;
 
-        [InputParameter("Inter-Group Spacing (px)", 18)]
+        [InputParameter("Candle Spacing (px)", 18)]
+        public int CandleSpacing { get; set; } = 2;      // ← NEW: spacing between candles
+
+        [InputParameter("Inter-Group Spacing (px)", 19)]
         public int GroupSpacing { get; set; } = 20;
 
-        [InputParameter("Horizontal Offset (px)", 19)]
+        [InputParameter("Horizontal Offset (px)", 20)]
         public int Offset { get; set; } = 0;
 
-        [InputParameter("Decreasing Fill", 20)]
+        [InputParameter("Decreasing Fill", 21)]
         public Color DecrFill { get; set; } = Color.FromArgb(85, Color.IndianRed);
-        [InputParameter("Increasing Fill", 21)]
+        [InputParameter("Increasing Fill", 22)]
         public Color IncrFill { get; set; } = Color.FromArgb(85, Color.DarkGreen);
-        [InputParameter("Doji Fill", 22)]
+        [InputParameter("Doji Fill", 23)]
         public Color DojiFill { get; set; } = Color.Gray;
 
-        [InputParameter("Draw Border", 23)]
+        [InputParameter("Draw Border", 24)]
         public bool DrawBorder { get; set; } = true;
-        [InputParameter("Border Width", 24)]
+        [InputParameter("Border Width", 25)]
         public int BorderWidth { get; set; } = 1;
-        [InputParameter("Decr Border", 25)]
+        [InputParameter("Decr Border", 26)]
         public Color DecrBorder { get; set; } = Color.IndianRed;
-        [InputParameter("Incr Border", 26)]
+        [InputParameter("Incr Border", 27)]
         public Color IncrBorder { get; set; } = Color.DarkGreen;
-        [InputParameter("Doji Border", 27)]
+        [InputParameter("Doji Border", 28)]
         public Color DojiBorder { get; set; } = Color.Gray;
 
-        [InputParameter("Wick Width", 28)]
+        [InputParameter("Wick Width", 29)]
         public int WickWidth { get; set; } = 1;
-        [InputParameter("Decr Wick", 29)]
+        [InputParameter("Decr Wick", 30)]
         public Color DecrWick { get; set; } = Color.IndianRed;
-        [InputParameter("Incr Wick", 30)]
+        [InputParameter("Incr Wick", 31)]
         public Color IncrWick { get; set; } = Color.DarkGreen;
-        [InputParameter("Doji Wick", 31)]
+        [InputParameter("Doji Wick", 32)]
         public Color DojiWick { get; set; } = Color.Gray;
 
 
         //—— Internal Series Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[5];
-        private readonly bool[] _loaded = new bool[5];
 
         public POWER_OF_THREE_MultiTF()
         {
@@ -97,27 +99,39 @@ namespace POWER_OF_THREE
 
         protected override void OnInit()
         {
+            ReloadHistory();
+        }
+
+        protected override void OnSettingsUpdated()
+        {
+            base.OnSettingsUpdated();
+            ReloadHistory();
+        }
+
+        private void ReloadHistory()
+        {
             var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
             var uses = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
             var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
 
             for (int i = 0; i < 5; i++)
             {
-                if (uses[i] && !_loaded[i])
-                {
-                    _hist[i] = SymbolExtensions.GetHistory(this.Symbol,
-                                      periods[i], this.Symbol.HistoryType,
-                                      candlesCount[i]);
-                    _loaded[i] = true;
-                }
+                if (uses[i] && candlesCount[i] > 0)
+                    _hist[i] = SymbolExtensions.GetHistory(
+                                 this.Symbol,
+                                 periods[i],
+                                 this.Symbol.HistoryType,
+                                 candlesCount[i]
+                               );
+                else
+                    _hist[i] = null;
             }
         }
 
         public override void OnPaintChart(PaintChartEventArgs args)
         {
             base.OnPaintChart(args);
-            if (CurrentChart == null)
-                return;
+            if (CurrentChart == null) return;
 
             var g = args.Graphics;
             var win = CurrentChart.Windows[args.WindowIndex];
@@ -125,32 +139,31 @@ namespace POWER_OF_THREE
             var plotArea = args.Rectangle;
             float rightX = plotArea.Right - Offset;
 
-            // determine bar width & single-step
+            // determine bar width
             int bw = CurrentChart.BarsWidth;
-            int adj = (bw > 5 && (bw % 2) != 0) ? 1 : 0;
-            if (bw > 5) bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
+            if (bw > 5)
+                bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
             float barW = UseCustomBarWidth ? CustomBarWidth : bw;
-            float singleW = barW + adj;
 
+            // per-bar horizontal step now includes your CandleSpacing
+            float singleW = barW + CandleSpacing;
+
+            // draw each TF block from the right inward
+            float cumWidth = 0f;
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
-            var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
 
-            // we need cumulative width of prior groups to position each block
-            float cumWidth = 0;
             for (int tfIdx = 0; tfIdx < 5; tfIdx++)
             {
-                if (!usesTF[tfIdx] || _hist[tfIdx] == null)
+                var data = _hist[tfIdx];
+                if (!usesTF[tfIdx] || data == null || data.Count == 0)
                     continue;
 
-                int count = candlesCount[tfIdx];
+                int count = data.Count;
                 float groupW = count * singleW;
-                float startX = rightX - cumWidth;     // right‐anchor minus prior groups
+                float startX = rightX - cumWidth;
 
-                var data = _hist[tfIdx];
                 for (int c = 0; c < count; c++)
                 {
-                    if (c >= data.Count)
-                        break;
                     if (data[c, SeekOriginHistory.End] is not HistoryItemBar raw)
                         continue;
 
@@ -165,34 +178,30 @@ namespace POWER_OF_THREE
                     using var penBr = new Pen(brdrC, BorderWidth);
                     using var penWk = new Pen(wickC, WickWidth);
 
-                    // within‐group X: anchor at startX, move left by c*singleW, then shift bar width
+                    // position each candle: flush, with CandleSpacing between them
                     float x = startX - c * singleW - barW;
-
                     float yO = (float)conv.GetChartY(raw.Open);
                     float yC = (float)conv.GetChartY(raw.Close);
                     float top = isDoji
                                  ? (float)conv.GetChartY(raw.Close)
                                  : Math.Min(yO, yC);
-                    float h = isDoji
-                                 ? 1
-                                 : Math.Abs(yC - yO);
+                    float h = isDoji ? 1 : Math.Abs(yC - yO);
 
                     var rect = new RectangleF(x, top, barW, h);
 
-                    // wicks
+                    // draw wicks
                     float yH = (float)conv.GetChartY(raw.High);
                     float yL = (float)conv.GetChartY(raw.Low);
                     float mid = x + barW * 0.5f;
                     g.DrawLine(penWk, mid, yH, mid, top);
                     g.DrawLine(penWk, mid, top + h, mid, yL);
 
-                    // body & optional border
+                    // fill & border
                     g.FillRectangle(brush, rect);
                     if (DrawBorder)
                         g.DrawRectangle(penBr, rect.X, rect.Y, rect.Width, rect.Height);
                 }
 
-                // after drawing this block, add its width + inter-group gap
                 cumWidth += groupW + GroupSpacing;
             }
         }
