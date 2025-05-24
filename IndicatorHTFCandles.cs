@@ -120,11 +120,11 @@ namespace POWER_OF_THREE
             {
                 if (uses[i] && candlesCount[i] > 0)
                     _hist[i] = SymbolExtensions.GetHistory(
-                                 this.Symbol,
-                                 periods[i],
-                                 this.Symbol.HistoryType,
-                                 candlesCount[i]
-                               );
+                        this.Symbol,
+                        periods[i],
+                        this.Symbol.HistoryType,
+                        candlesCount[i]
+                    );
                 else
                     _hist[i] = null;
             }
@@ -133,36 +133,33 @@ namespace POWER_OF_THREE
         public override void OnPaintChart(PaintChartEventArgs args)
         {
             base.OnPaintChart(args);
-            if (CurrentChart == null) return;
+            if (CurrentChart == null || HistoricalData.Count == 0)
+                return;
 
             var g = args.Graphics;
             var win = CurrentChart.Windows[args.WindowIndex];
             var conv = win.CoordinatesConverter;
             var plotArea = args.Rectangle;
 
-            // 1) bar sizing
+            // 1) Bar sizing
             int bw = CurrentChart.BarsWidth;
             if (bw > 5)
                 bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
             float barW = UseCustomBarWidth ? CustomBarWidth : bw;
             float singleW = barW + CandleSpacing;
 
-            // 2) anchor to last real bar on chart
-            if (HistoricalData.Count == 0) return;
+            // 2) Anchor just off the right edge of the current candles
             var lastMain = HistoricalData[HistoricalData.Count - 1, SeekOriginHistory.Begin];
             float lastBarX = (float)conv.GetChartX(lastMain.TimeLeft) + barW * 0.5f;
-            float rightX = lastBarX + Offset;
+            float rightPx = lastBarX + barW + CandleSpacing - Offset;
 
-            // 3) draw each TF block, stacked from the right inward
-            float cumWidth = 0f;
-            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
-            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
-
-            // correct:
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
 
+            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
+            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
 
+            // 3) Draw each TF block
             for (int tfIdx = 0; tfIdx < 5; tfIdx++)
             {
                 var data = _hist[tfIdx];
@@ -171,48 +168,36 @@ namespace POWER_OF_THREE
 
                 int count = data.Count;
                 float groupW = count * singleW;
-                float startX = rightX - cumWidth;
+                float startX = rightPx - tfIdx * (groupW + GroupSpacing);
 
-                // draw timeframe label above
-                string tfText = FormatPeriod(periods[tfIdx]);
+                // — Label —
+                string full = data.Aggregation.GetPeriod.ToString();  // "15-Minute", "1-Hour", etc.
+                string tfText = Abbreviate(full);                      // "15m", "1H", etc.
                 var tfSize = g.MeasureString(tfText, labelFont);
                 float tfX = startX - groupW / 2f - tfSize.Width / 2f;
-                float tfY = plotArea.Top + 2f;                       // <— define tfY once
+                float tfY = plotArea.Top + 2f;
                 g.DrawString(tfText, labelFont, labelBrush, tfX, tfY);
 
-                // 2) draw countdown immediately beneath it
-                if (data[0, SeekOriginHistory.End] is HistoryItemBar newest)
-                {
-                    // 2.1 parse the period string, e.g. "15-Minute", "1-Hour", "1-Day"
-                    var full = data.Aggregation.GetPeriod.ToString();
-                    var parts = full.Split('-');
-                    int val = int.Parse(parts[0]);
-                    var unit = parts[1].ToLowerInvariant();
+                // — Countdown —
+                var newest = (HistoryItemBar)data[0, SeekOriginHistory.End];
+                var parts = full.Split('-');
+                int val = int.Parse(parts[0]);
+                string unit = parts[1].ToLowerInvariant();
+                TimeSpan span = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
+                                  : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                                  : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                                  : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                                  : TimeSpan.Zero;
+                var nextCloseUtc = newest.TimeLeft.ToUniversalTime().Add(span);
+                var remain = nextCloseUtc - DateTime.UtcNow;
+                if (remain < TimeSpan.Zero) remain = TimeSpan.Zero;
+                string cdText = $"({remain.Hours:D2}:{remain.Minutes:D2}:{remain.Seconds:D2})";
+                var cdSize = g.MeasureString(cdText, labelFont);
+                float cdX = startX - groupW / 2f - cdSize.Width / 2f;
+                float cdY = tfY + tfSize.Height + 2f;
+                g.DrawString(cdText, labelFont, labelBrush, cdX, cdY);
 
-                    // 2.2 build a TimeSpan for one period
-                    TimeSpan span = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
-                                   : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
-                                   : unit.StartsWith("day") ? TimeSpan.FromDays(val)
-                                   : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
-                                   : TimeSpan.Zero;
-
-                    // 2.3 next close = last bar’s end + one period
-                    var nextCloseUtc = newest.TimeLeft.ToUniversalTime().Add(span);
-                    var remain = nextCloseUtc - DateTime.UtcNow;
-                    if (remain < TimeSpan.Zero) remain = TimeSpan.Zero;
-
-                    // 2.4 format as (HH:mm:ss)
-                    string cdText = $"({remain.Hours:D2}:{remain.Minutes:D2}:{remain.Seconds:D2})";
-                    var cdSize = g.MeasureString(cdText, labelFont);
-
-                    // 2.5 center it under the TF label
-                    float cdX = startX - groupW / 2f - cdSize.Width / 2f;
-                    float cdY = tfY + tfSize.Height + 2;
-
-                    g.DrawString(cdText, labelFont, labelBrush, cdX, cdY);
-                }
-
-                // draw the candles themselves
+                // — Candles —
                 for (int c = 0; c < count; c++)
                 {
                     if (data[c, SeekOriginHistory.End] is not HistoryItemBar raw)
@@ -221,60 +206,52 @@ namespace POWER_OF_THREE
                     bool isDoji = raw.Close == raw.Open;
                     bool isBull = raw.Close > raw.Open;
 
-                    var fillC = isDoji ? DojiFill : (isBull ? IncrFill : DecrFill);
-                    var brdrC = isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder);
-                    var wickC = isDoji ? DojiWick : (isBull ? IncrWick : DecrWick);
+                    float x = startX
+                              - c * singleW
+                              - barW;
 
-                    using var brush = new SolidBrush(fillC);
-                    using var penBr = new Pen(brdrC, BorderWidth);
-                    using var penWk = new Pen(wickC, WickWidth);
-
-                    float x = startX - c * singleW - barW;
                     float yO = (float)conv.GetChartY(raw.Open);
                     float yC = (float)conv.GetChartY(raw.Close);
                     float top = isDoji
-                                 ? (float)conv.GetChartY(raw.Close)
-                                 : Math.Min(yO, yC);
+                                ? yC
+                                : Math.Min(yO, yC);
                     float hgt = isDoji
-                                 ? 1
-                                 : Math.Abs(yC - yO);
-                    var rect = new RectangleF(x, top, barW, hgt);
+                                ? 1f
+                                : Math.Abs(yC - yO);
 
-                    // wicks
+                    // Wick
+                    using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth);
                     float yH = (float)conv.GetChartY(raw.High);
                     float yL = (float)conv.GetChartY(raw.Low);
                     float mid = x + barW * 0.5f;
-                    g.DrawLine(penWk, mid, yH, mid, top);
-                    g.DrawLine(penWk, mid, top + hgt, mid, yL);
+                    g.DrawLine(penW, mid, yH, mid, top);
+                    g.DrawLine(penW, mid, top + hgt, mid, yL);
 
-                    // body & border
-                    g.FillRectangle(brush, rect);
+                    // Body
+                    using var brush = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill));
+                    g.FillRectangle(brush, x, top, barW, hgt);
+
+                    // Border
                     if (DrawBorder)
-                        g.DrawRectangle(penBr, rect.X, rect.Y, rect.Width, rect.Height);
+                    {
+                        using var penB = new Pen(isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder), BorderWidth);
+                        g.DrawRectangle(penB, x, top, barW, hgt);
+                    }
                 }
-
-                cumWidth += groupW + GroupSpacing;
             }
         }
 
-        private string FormatPeriod(Period p)
+        private string Abbreviate(string full)
         {
-            // e.g. p.ToString() == "15-Minute", "1-Hour", "1-Day", "1-Week"
-            var s = p.ToString();
-            var parts = s.Split('-');
-            if (parts.Length == 2)
-            {
-                var num = parts[0];
-                var unit = parts[1].ToLower();
-
-                if (unit.StartsWith("Minute")) return num + "m";
-                if (unit.StartsWith("Hour")) return num + "H";
-                if (unit.StartsWith("Day")) return num + "D";
-                if (unit.StartsWith("Week")) return num + "W";
-            }
-            // fallback to the raw string
-            return s;
+            var parts = full.Split('-');
+            if (parts.Length != 2) return full;
+            var num = parts[0];
+            var unit = parts[1].ToLowerInvariant();
+            return unit.StartsWith("min") ? num + "m"
+                 : unit.StartsWith("hour") ? num + "H"
+                 : unit.StartsWith("day") ? num + "D"
+                 : unit.StartsWith("week") ? num + "W"
+                 : full;
         }
-
     }
 }
