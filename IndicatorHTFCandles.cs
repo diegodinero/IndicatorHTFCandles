@@ -183,12 +183,27 @@ namespace POWER_OF_THREE
                     float top = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
-                    // interval label above the wick
-                    string ivLbl = bar.TimeLeft.Minute.ToString();
+                    // — interval label above the wick —
+                    // get the raw period string, lower-cased
+                    string tf = data.Aggregation.GetPeriod.ToString().ToLowerInvariant();
+
+                    // decide minute vs hour+ by substring match
+                    bool isMin = tf.Contains("min");
+                    string ivLbl = isMin
+                        ? bar.TimeLeft.Minute.ToString()   // “0”, “5”, “15”, “30”… for any X-minute TF
+                        : bar.TimeLeft.Hour.ToString();    // “0”–“23” for 1H, 4H, 1D, etc.
+
                     var ivSz = g.MeasureString(ivLbl, ivlFont);
-                    g.DrawString(ivLbl, ivlFont, ivlBrush,
-                                 xLeft + (barW - ivSz.Width) / 2f,
-                                 yH - ivSz.Height - 2f);
+                    float xLbl = xLeft + (barW - ivSz.Width) * 0.5f;
+                    float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
+
+                    g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
+
+
+
+
+
+
 
                     // wick
                     using (var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth))
@@ -210,43 +225,7 @@ namespace POWER_OF_THREE
                     }
                 }
 
-                //
-                // C) FVG / Imbalance boxes *after* candles
-                //
-                if (ShowImbalances)
-                {
-                    // for each triple oldest→middle→newest (i = 2..cnt–1)
-                    for (int i = 2; i < cnt; i++)
-                    {
-                        var oldest = data[i - 2, SeekOriginHistory.End] as HistoryItemBar;
-                        var middle = data[i - 1, SeekOriginHistory.End] as HistoryItemBar;
-                        var newestI = data[i, SeekOriginHistory.End] as HistoryItemBar;
-                        if (oldest == null || middle == null || newestI == null)
-                            continue;
-
-                        // bullish FVG: middle.Low & newest.Close both above oldest.High
-                        if (middle.Low > oldest.High && newestI.Close > oldest.High)
-                        {
-                            int cMid = cnt - 1 - (i - 1);
-                            float x = blockX + cMid * stepW;
-                            float yTop = (float)conv.GetChartY(oldest.High);
-                            float yBot = (float)conv.GetChartY(middle.Low);
-                            using var brush = new SolidBrush(Color.FromArgb(180, 128, 128, 128));
-                            g.FillRectangle(brush, x, yTop, barW, yBot - yTop);
-                        }
-
-                        // bearish FVG: middle.High & newest.Close both below oldest.Low
-                        if (middle.High < oldest.Low && newestI.Close < oldest.Low)
-                        {
-                            int cMid = cnt - 1 - (i - 1);
-                            float x = blockX + cMid * stepW;
-                            float yTop = (float)conv.GetChartY(middle.High);
-                            float yBot = (float)conv.GetChartY(oldest.Low);
-                            using var brush = new SolidBrush(Color.FromArgb(180, 128, 128, 128));
-                            g.FillRectangle(brush, x, yTop, barW, yBot - yTop);
-                        }
-                    }
-                }
+                
                 // …after you draw your candles, *then* do:
 
                 // ——— Fair-Value-Gap / Imbalance ———
