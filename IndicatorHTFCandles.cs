@@ -33,7 +33,7 @@ namespace POWER_OF_THREE
         //—— Shared Display Settings —————————————————————————————————————————————
         [InputParameter("Custom Bar Width", 16)] public bool UseCustomBarWidth { get; set; } = false;
         [InputParameter("Bar Width (px)", 17)] public int CustomBarWidth { get; set; } = 12;
-        [InputParameter("Candle Spacing (px)", 18)] public int CandleSpacing { get; set; } = 2;
+        [InputParameter("Candle Spacing (px)", 18)] public int CandleSpacing { get; set; } = 5;
         [InputParameter("Inter-Group Spacing", 19)] public int GroupSpacing { get; set; } = 20;
         [InputParameter("Horizontal Offset", 20)] public int Offset { get; set; } = 0;
         [InputParameter("Indicator Spacing (px)", 21)] public int IndicatorSpacing { get; set; } = 40;
