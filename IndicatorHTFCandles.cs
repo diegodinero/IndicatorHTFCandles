@@ -133,6 +133,42 @@ namespace POWER_OF_THREE
                 float groupW = cnt * stepW;
                 float blockX = baseX + cumOffset;
 
+                // ——— Fair-Value-Gap / Imbalance ———
+                if (ShowImbalances)
+                {
+                    // data[0] = newest, data[1] = 1 bar ago, data[2] = 2 bars ago, etc.
+                    for (int k = 0; k < cnt - 2; k++)
+                    {
+                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest of the trio
+                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle bar
+                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest of the trio
+
+                        if (bNew == null || bMid == null || bOld == null)
+                            continue;
+
+                        // UAlgo 3-bar FVG logic:
+                        bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
+                        bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
+
+                        if (bullFVG || bearFVG)
+                        {
+                            // compute on-screen X for the *middle* bar:
+                            int cMid = cnt - 1 - (k + 1);
+                            float xMid = blockX + cMid * stepW;
+
+                            int cOld = cnt - 1 - (k + 2);
+                            float xOld = blockX + cOld * stepW;
+
+                            // compute gap top/bottom
+                            float yTop = (float)conv.GetChartY(bOld.Low);
+                            float yBot = (float)conv.GetChartY(bNew.High);
+
+                            using var brush = new SolidBrush(ImbalanceColor);
+                            g.FillRectangle(brush, xOld, yTop, barW * 3, yBot - yTop);
+                        }
+                    }
+                }
+
                 //
                 // A) Timeframe label & countdown
                 //
@@ -226,13 +262,6 @@ namespace POWER_OF_THREE
                     float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
                     g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
 
-
-
-
-
-
-
-
                     // wick
                     using (var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth))
                     {
@@ -251,46 +280,9 @@ namespace POWER_OF_THREE
                         using var penB = new Pen(isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder), BorderWidth);
                         g.DrawRectangle(penB, xLeft, top, barW, hgt);
                     }
-                }
+                }                     
 
                 
-                // …after you draw your candles, *then* do:
-
-                // ——— Fair-Value-Gap / Imbalance ———
-                if (ShowImbalances)
-                {
-                    // data[0] = newest, data[1] = 1 bar ago, data[2] = 2 bars ago, etc.
-                    for (int k = 0; k < cnt - 2; k++)
-                    {
-                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest of the trio
-                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle bar
-                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest of the trio
-
-                        if (bNew == null || bMid == null || bOld == null)
-                            continue;
-
-                        // UAlgo 3-bar FVG logic:
-                        bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
-                        bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
-
-                        if (bullFVG || bearFVG)
-                        {
-                            // compute on-screen X for the *middle* bar:
-                            int cMid = cnt - 1 - (k + 1);
-                            float xMid = blockX + cMid * stepW;
-
-                            int cOld = cnt - 1 - (k + 2);
-                            float xOld = blockX + cOld * stepW;
-
-                            // compute gap top/bottom
-                            float yTop = (float)conv.GetChartY(bOld.Low);
-                            float yBot = (float)conv.GetChartY(bNew.High);
-
-                            using var brush = new SolidBrush(ImbalanceColor);
-                            g.FillRectangle(brush, xOld, yTop, barW * 3, yBot - yTop);
-                        }
-                    }
-                }
 
                 // —————— in your OnPaintChart, after the FVG code ——————
                 // ——— Volume Imbalance Boxes ———
