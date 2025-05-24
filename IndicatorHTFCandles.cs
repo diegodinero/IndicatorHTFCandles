@@ -68,9 +68,13 @@ namespace POWER_OF_THREE
         [InputParameter("Volume Imbalance Color", 40)]
         public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
 
+        // —— New Weekly timeframe ———————————————————————————————————————————————
+        [InputParameter("Use TF #6", 41)] public bool UseTF6 { get; set; } = true;
+        [InputParameter("TF #6 Period", 42)] public Period TFPeriod6 { get; set; } = Period.WEEK1;
+        [InputParameter("TF #6 Candles", 43)] public int Candles6 { get; set; } = 4;
 
         //—— Internal Storage ————————————————————————————————————————————————
-        private readonly HistoricalData[] _hist = new HistoricalData[5];
+        private readonly HistoricalData[] _hist = new HistoricalData[6];
 
         public POWER_OF_THREE_MultiTF()
         {
@@ -83,11 +87,11 @@ namespace POWER_OF_THREE
 
         private void ReloadHistory()
         {
-            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
-            var uses = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
-            var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
+            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5, TFPeriod6 };
+            var uses = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
+            var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5, Candles6 };
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 6; i++)
                 _hist[i] = (uses[i] && candlesCount[i] > 0)
                          ? SymbolExtensions.GetHistory(this.Symbol, periods[i], this.Symbol.HistoryType, candlesCount[i])
                          : null;
@@ -120,10 +124,10 @@ namespace POWER_OF_THREE
             using var ivlFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
             using var ivlBrush = new SolidBrush(IntervalLabelColor);
 
-            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
+            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
             float cumOffset = 0f;
 
-            for (int tfIdx = 0; tfIdx < 5; tfIdx++)
+            for (int tfIdx = 0; tfIdx < 6; tfIdx++)
             {
                 var data = _hist[tfIdx];
                 if (!usesTF[tfIdx] || data == null || data.Count == 0)
@@ -285,9 +289,9 @@ namespace POWER_OF_THREE
                         using var penB = new Pen(isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder), BorderWidth);
                         g.DrawRectangle(penB, xLeft, top, barW, hgt);
                     }
-                }                     
+                }
 
-                
+
 
                 // —————— in your OnPaintChart, after the FVG code ——————
                 // ——— Volume Imbalance Boxes ———
