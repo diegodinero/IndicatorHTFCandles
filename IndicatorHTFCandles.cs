@@ -62,6 +62,12 @@ namespace POWER_OF_THREE
         [InputParameter("Imbalance Color", 38)]
         public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
 
+        [InputParameter("Show Volume Imbalances", 39)]
+        public bool ShowVolumeImbalances { get; set; } = true;
+
+        [InputParameter("Volume Imbalance Color", 40)]
+        public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
+
 
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[5];
@@ -278,6 +284,60 @@ namespace POWER_OF_THREE
                         }
                     }
                 }
+
+                // —————— in your OnPaintChart, after the FVG code ——————
+                // ——— Volume Imbalance Boxes ———
+                // ——— Volume Imbalance Boxes ———
+                if (ShowVolumeImbalances)
+                {
+                    // data[0] = newest, data[1] = 1 bar ago, … data[cnt-1] = oldest
+                    for (int k = 0; k < cnt - 1; k++)
+                    {
+                        var bar1 = data[k, SeekOriginHistory.End] as HistoryItemBar;  // newest
+                        var bar2 = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;  // previous
+
+                        if (bar1 == null || bar2 == null)
+                            continue;
+
+                        bool bullVI = bar1.Low < bar2.High
+                                   && Math.Min(bar1.Open, bar1.Close) > Math.Max(bar2.Open, bar2.Close);
+
+                        bool bearVI = bar1.High > bar2.Low
+                                   && Math.Max(bar1.Open, bar1.Close) < Math.Min(bar2.Open, bar2.Close);
+
+                        if (!bullVI && !bearVI)
+                            continue;
+
+                        // horizontal pixel coords
+                        int c1 = cnt - 1 - k;
+                        int c2 = cnt - 1 - (k + 1);
+                        float xStart = blockX + c2 * stepW;
+                        float xEnd = blockX + c1 * stepW + barW;
+
+                        // vertical price bounds (as doubles)
+                        double topPrice = bearVI
+                            ? Math.Min(bar2.Open, bar2.Close)
+                            : Math.Min(bar1.Open, bar1.Close);
+
+                        double botPrice = bearVI
+                            ? Math.Max(bar1.Open, bar1.Close)
+                            : Math.Max(bar2.Open, bar2.Close);
+
+                        // convert to y‐pixels and cast to float
+                        float yTop = (float)conv.GetChartY(topPrice);
+                        float yBot = (float)conv.GetChartY(botPrice);
+
+                        using var brush = new SolidBrush(VolumeImbalanceColor);
+                        g.FillRectangle(
+                            brush,
+                            xStart,
+                            yTop,
+                            (float)(xEnd - xStart),   // explicit cast here
+                            (float)(yBot - yTop)     // ...and here
+                        );
+                    }
+                }
+
 
 
                 cumOffset += groupW + GroupSpacing;
