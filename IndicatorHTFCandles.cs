@@ -259,6 +259,10 @@ namespace POWER_OF_THREE
                             default: ivLbl = ""; break;
                         }
                     }
+                    else if (tf.Contains("week"))
+                    {
+                        ivLbl = "";
+                    }
                     else
                     {
                         // fallback to hour
