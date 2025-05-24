@@ -29,7 +29,6 @@ namespace POWER_OF_THREE
         [InputParameter("TF #5 Period", 14)] public Period TFPeriod5 { get; set; } = Period.DAY1;
         [InputParameter("TF #5 Candles", 15)] public int Candles5 { get; set; } = 4;
 
-
         //—— Shared Display Settings —————————————————————————————————————————————
         [InputParameter("Custom Bar Width", 16)] public bool UseCustomBarWidth { get; set; } = false;
         [InputParameter("Bar Width (px)", 17)] public int CustomBarWidth { get; set; } = 12;
@@ -39,42 +38,25 @@ namespace POWER_OF_THREE
         [InputParameter("Indicator Spacing (px)", 21)] public int IndicatorSpacing { get; set; } = 40;
         [InputParameter("Label Color", 22)] public Color LabelColor { get; set; } = Color.White;
 
-        [InputParameter("Decr Fill", 22)]
-        public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
-
-        [InputParameter("Incr Fill", 23)]
-        public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
-
-        [InputParameter("Doji Fill", 24)]
-        public Color DojiFill { get; set; } = Color.Gray;
+        [InputParameter("Decr Fill", 23)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
+        [InputParameter("Incr Fill", 24)] public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
+        [InputParameter("Doji Fill", 25)] public Color DojiFill { get; set; } = Color.Gray;
 
         [InputParameter("Draw Border", 26)] public bool DrawBorder { get; set; } = true;
         [InputParameter("Border Width", 27)] public int BorderWidth { get; set; } = 1;
-        [InputParameter("Decr Border", 27)]
-        public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-
-        [InputParameter("Incr Border", 28)]
-        public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-
-        [InputParameter("Doji Border", 29)]
-        public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Decr Border", 28)] public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Border", 29)] public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Border", 30)] public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
         [InputParameter("Wick Width", 31)] public int WickWidth { get; set; } = 1;
-        [InputParameter("Decr Wick", 31)]
-        public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Decr Wick", 32)] public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Wick", 33)] public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Wick", 34)] public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Incr Wick", 32)]
-        public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Label Font", 35)] public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
+        [InputParameter("Interval Label Color", 36)] public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Doji Wick", 33)]
-        public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-
-        // ← after your existing input parameters…
-        [InputParameter("Label Font", 35)]
-        public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
-
-        [InputParameter("Interval Label Color", 36)]
-        public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Show FVG Imbalances", 37)] public bool ShowImbalances { get; set; } = true;
 
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[5];
@@ -95,9 +77,16 @@ namespace POWER_OF_THREE
             var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
 
             for (int i = 0; i < 5; i++)
+            {
                 _hist[i] = (uses[i] && candlesCount[i] > 0)
-                         ? SymbolExtensions.GetHistory(this.Symbol, periods[i], this.Symbol.HistoryType, candlesCount[i])
+                         ? SymbolExtensions.GetHistory(
+                               this.Symbol,
+                               periods[i],
+                               this.Symbol.HistoryType,
+                               candlesCount[i]
+                           )
                          : null;
+            }
         }
 
         public override void OnPaintChart(PaintChartEventArgs args)
@@ -110,24 +99,22 @@ namespace POWER_OF_THREE
             var conv = CurrentChart.Windows[args.WindowIndex].CoordinatesConverter;
             var plotArea = args.Rectangle;
 
-            // 1) compute bar width & step
+            // 1) bar sizing
             int bw = CurrentChart.BarsWidth;
             if (bw > 5) bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
             float barW = UseCustomBarWidth ? CustomBarWidth : bw;
             float stepW = barW + CandleSpacing;
 
-            // 2) anchor at last main-chart bar so indicator scrolls
+            // 2) anchor just off the last real bar so the whole block scrolls
             var lastTime = HistoricalData[HistoricalData.Count - 1, SeekOriginHistory.Begin].TimeLeft;
             float lastX = (float)conv.GetChartX(lastTime);
 
-            // add the indicator spacing here
             float baseX = lastX + stepW + Offset + IndicatorSpacing;
 
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
-
-            using var intevallabelFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
-            using var intervallabelBrush = new SolidBrush(IntervalLabelColor);
+            using var ivlLabelFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
+            using var ivlLabelBr = new SolidBrush(IntervalLabelColor);
 
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
 
@@ -140,71 +127,104 @@ namespace POWER_OF_THREE
 
                 int cnt = data.Count;
                 float groupW = cnt * stepW;
-
-                // position the block's first (newest) candle
                 float blockX = baseX + cumOffset;
 
-                // draw label
+                // — FVG / Imbalance boxes first —
+                if (ShowImbalances)
+                {
+                    for (int c = 0; c < cnt - 1; c++)
+                    {
+                        int idxNew = cnt - 1 - c;
+                        int idxOld = cnt - 2 - c;
+                        var newer = data[idxNew, SeekOriginHistory.End] as HistoryItemBar;
+                        var older = data[idxOld, SeekOriginHistory.End] as HistoryItemBar;
+                        if (newer == null || older == null) continue;
+
+                        bool bullGap = older.High < newer.Low;
+                        bool bearGap = older.Low > newer.High;
+                        if (!bullGap && !bearGap) continue;
+
+                        float yTop = bullGap
+                                         ? (float)conv.GetChartY(older.High)
+                                         : (float)conv.GetChartY(newer.High);
+                        float yBottom = bullGap
+                                         ? (float)conv.GetChartY(newer.Low)
+                                         : (float)conv.GetChartY(older.Low);
+
+                        float xRect = blockX + c * stepW;
+                        using var fvgBrush = new SolidBrush(Color.FromArgb(80, 128, 128, 128));
+                        g.FillRectangle(fvgBrush, xRect, yTop, barW, yBottom - yTop);
+                    }
+                }
+
+                // — Timeframe label & countdown —
                 string fullTf = data.Aggregation.GetPeriod.ToString();
                 string tfText = Abbreviate(fullTf);
                 var tfSz = g.MeasureString(tfText, labelFont);
-                g.DrawString(tfText, labelFont, labelBrush,
-                             blockX + groupW / 2f - tfSz.Width / 2f,
-                             plotArea.Top + 2f);
+                g.DrawString(
+                    tfText, labelFont, labelBrush,
+                    blockX + groupW / 2f - tfSz.Width / 2f,
+                    plotArea.Top + 2f
+                );
 
-                // draw countdown
-                var newest = (HistoryItemBar)data[0, SeekOriginHistory.End];
+                var newestBar = (HistoryItemBar)data[0, SeekOriginHistory.End];
                 var parts = fullTf.Split('-');
-                int v = int.Parse(parts[0]);
-                string u = parts[1].ToLowerInvariant();
-                TimeSpan span = u.StartsWith("min") ? TimeSpan.FromMinutes(v)
-                                 : u.StartsWith("hour") ? TimeSpan.FromHours(v)
-                                 : u.StartsWith("day") ? TimeSpan.FromDays(v)
-                                 : u.StartsWith("week") ? TimeSpan.FromDays(7 * v)
-                                 : TimeSpan.Zero;
-                var nextClose = newest.TimeLeft.ToUniversalTime().Add(span);
+                int val = int.Parse(parts[0]);
+                string unit = parts[1].ToLowerInvariant();
+                TimeSpan span = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
+                              : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                              : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                              : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                              : TimeSpan.Zero;
+
+                var nextClose = newestBar.TimeLeft.ToUniversalTime().Add(span);
                 var rem = nextClose - DateTime.UtcNow;
                 if (rem < TimeSpan.Zero) rem = TimeSpan.Zero;
                 string cdTxt = $"({rem.Hours:D2}:{rem.Minutes:D2}:{rem.Seconds:D2})";
                 var cdSz = g.MeasureString(cdTxt, labelFont);
-                g.DrawString(cdTxt, labelFont, labelBrush,
-                             blockX + groupW / 2f - cdSz.Width / 2f,
-                             plotArea.Top + 2f + tfSz.Height + 2f);
+                g.DrawString(
+                    cdTxt, labelFont, labelBrush,
+                    blockX + groupW / 2f - cdSz.Width / 2f,
+                    plotArea.Top + 2f + tfSz.Height + 2f
+                );
 
-                // draw each candle left→right
+                // — Candles on top —
                 for (int c = 0; c < cnt; c++)
                 {
-                    int rawIndex = cnt - 1 - c;  // rawIndex=0 is oldest, rawIndex=cnt-1 is newest
-                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar)
-                        continue;
+                    int rawIndex = cnt - 1 - c;
+                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar) continue;
 
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
 
                     float xLeft = blockX + c * stepW;
-
+                    float yH = (float)conv.GetChartY(bar.High);
+                    float yL = (float)conv.GetChartY(bar.Low);
                     float yO = (float)conv.GetChartY(bar.Open);
                     float yC = (float)conv.GetChartY(bar.Close);
                     float top = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
-                    // 1) draw interval label above candle
-                    string lbl = bar.TimeLeft.Minute.ToString();
-                    var lblSize = g.MeasureString(lbl, labelFont);
-                    float lblX = xLeft + (barW - lblSize.Width) * 0.5f;
-                    float lblY = top - lblSize.Height - 2f;
-                    g.DrawString(lbl, IntervalLabelFont, intervallabelBrush, lblX, lblY);
+
+                    // interval label above wick
+                    string ivlLbl = bar.TimeLeft.Minute.ToString();
+                    var ivSz = g.MeasureString(ivlLbl, ivlLabelFont);
+                    g.DrawString(
+                        ivlLbl, ivlLabelFont, ivlLabelBr,
+                        xLeft + (barW - ivSz.Width) / 2f,
+                        yH - ivSz.Height - 2f
+                    );
 
                     // wick
-                    using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth);
-                    float yH = (float)conv.GetChartY(bar.High);
-                    float yL = (float)conv.GetChartY(bar.Low);
-                    float mid = xLeft + barW * 0.5f;
-                    g.DrawLine(penW, mid, yH, mid, top);
-                    g.DrawLine(penW, mid, top + hgt, mid, yL);
+                    using (var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth))
+                    {
+                        float mid = xLeft + barW * 0.5f;
+                        g.DrawLine(penW, mid, yH, mid, top);
+                        g.DrawLine(penW, mid, top + hgt, mid, yL);
+                    }
 
                     // body
-                    using var br = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill));
-                    g.FillRectangle(br, xLeft, top, barW, hgt);
+                    using (var brush = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill)))
+                        g.FillRectangle(brush, xLeft, top, barW, hgt);
 
                     // border
                     if (DrawBorder)
