@@ -187,17 +187,45 @@ namespace POWER_OF_THREE
                     // get the raw period string, lower-cased
                     string tf = data.Aggregation.GetPeriod.ToString().ToLowerInvariant();
 
-                    // decide minute vs hour+ by substring match
-                    bool isMin = tf.Contains("min");
-                    string ivLbl = isMin
-                        ? bar.TimeLeft.Minute.ToString()   // “0”, “5”, “15”, “30”… for any X-minute TF
-                        : bar.TimeLeft.Hour.ToString();    // “0”–“23” for 1H, 4H, 1D, etc.
+                    // choose label by unit
+                    string ivLbl;
+                    if (tf.Contains("min"))
+                    {
+                        // minute-based TFs: “0”, “5”, “15”, “30”…
+                        ivLbl = bar.TimeLeft.Minute.ToString();
+                    }
+                    else if (tf.Contains("hour"))
+                    {
+                        // hourly TFs: “0”–“23”
+                        ivLbl = bar.TimeLeft.Hour.ToString();
+                    }
+                    else if (tf.Contains("day"))
+                    {
+                        // daily TFs: one-letter weekday
+                        switch (bar.TimeLeft.DayOfWeek)
+                        {
+                            case DayOfWeek.Monday: ivLbl = "M"; break;
+                            case DayOfWeek.Tuesday: ivLbl = "T"; break;
+                            case DayOfWeek.Wednesday: ivLbl = "W"; break;
+                            case DayOfWeek.Thursday: ivLbl = "T"; break;
+                            case DayOfWeek.Friday: ivLbl = "F"; break;
+                            case DayOfWeek.Saturday: ivLbl = "S"; break;
+                            case DayOfWeek.Sunday: ivLbl = "S"; break;
+                            default: ivLbl = ""; break;
+                        }
+                    }
+                    else
+                    {
+                        // fallback to hour
+                        ivLbl = bar.TimeLeft.Hour.ToString();
+                    }
 
+                    // draw it above the wick
                     var ivSz = g.MeasureString(ivLbl, ivlFont);
                     float xLbl = xLeft + (barW - ivSz.Width) * 0.5f;
                     float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
-
                     g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
+
 
 
 
