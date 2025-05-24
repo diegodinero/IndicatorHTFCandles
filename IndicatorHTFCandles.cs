@@ -1,5 +1,6 @@
 // Copyright QUANTOWER LLC. © 2025. All rights reserved.
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using TradingPlatform.BusinessLayer;
 using TradingPlatform.BusinessLayer.Chart;
@@ -77,16 +78,9 @@ namespace POWER_OF_THREE
             var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
 
             for (int i = 0; i < 5; i++)
-            {
                 _hist[i] = (uses[i] && candlesCount[i] > 0)
-                         ? SymbolExtensions.GetHistory(
-                               this.Symbol,
-                               periods[i],
-                               this.Symbol.HistoryType,
-                               candlesCount[i]
-                           )
+                         ? SymbolExtensions.GetHistory(this.Symbol, periods[i], this.Symbol.HistoryType, candlesCount[i])
                          : null;
-            }
         }
 
         public override void OnPaintChart(PaintChartEventArgs args)
@@ -113,12 +107,12 @@ namespace POWER_OF_THREE
 
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
-            using var ivlLabelFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
-            using var ivlLabelBr = new SolidBrush(IntervalLabelColor);
+            using var ivlFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
+            using var ivlBrush = new SolidBrush(IntervalLabelColor);
 
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
-
             float cumOffset = 0f;
+
             for (int tfIdx = 0; tfIdx < 5; tfIdx++)
             {
                 var data = _hist[tfIdx];
@@ -129,45 +123,18 @@ namespace POWER_OF_THREE
                 float groupW = cnt * stepW;
                 float blockX = baseX + cumOffset;
 
-                // — FVG / Imbalance boxes first —
-                if (ShowImbalances)
-                {
-                    for (int c = 0; c < cnt - 1; c++)
-                    {
-                        int idxNew = cnt - 1 - c;
-                        int idxOld = cnt - 2 - c;
-                        var newer = data[idxNew, SeekOriginHistory.End] as HistoryItemBar;
-                        var older = data[idxOld, SeekOriginHistory.End] as HistoryItemBar;
-                        if (newer == null || older == null) continue;
-
-                        bool bullGap = older.High < newer.Low;
-                        bool bearGap = older.Low > newer.High;
-                        if (!bullGap && !bearGap) continue;
-
-                        float yTop = bullGap
-                                         ? (float)conv.GetChartY(older.High)
-                                         : (float)conv.GetChartY(newer.High);
-                        float yBottom = bullGap
-                                         ? (float)conv.GetChartY(newer.Low)
-                                         : (float)conv.GetChartY(older.Low);
-
-                        float xRect = blockX + c * stepW;
-                        using var fvgBrush = new SolidBrush(Color.FromArgb(80, 128, 128, 128));
-                        g.FillRectangle(fvgBrush, xRect, yTop, barW, yBottom - yTop);
-                    }
-                }
-
-                // — Timeframe label & countdown —
+                //
+                // A) Timeframe label & countdown
+                //
                 string fullTf = data.Aggregation.GetPeriod.ToString();
                 string tfText = Abbreviate(fullTf);
                 var tfSz = g.MeasureString(tfText, labelFont);
-                g.DrawString(
-                    tfText, labelFont, labelBrush,
-                    blockX + groupW / 2f - tfSz.Width / 2f,
-                    plotArea.Top + 2f
-                );
+                g.DrawString(tfText, labelFont, labelBrush,
+                             blockX + groupW / 2f - tfSz.Width / 2f,
+                             plotArea.Top + 2f);
 
                 var newestBar = (HistoryItemBar)data[0, SeekOriginHistory.End];
+                // compute countdown
                 var parts = fullTf.Split('-');
                 int val = int.Parse(parts[0]);
                 string unit = parts[1].ToLowerInvariant();
@@ -182,17 +149,18 @@ namespace POWER_OF_THREE
                 if (rem < TimeSpan.Zero) rem = TimeSpan.Zero;
                 string cdTxt = $"({rem.Hours:D2}:{rem.Minutes:D2}:{rem.Seconds:D2})";
                 var cdSz = g.MeasureString(cdTxt, labelFont);
-                g.DrawString(
-                    cdTxt, labelFont, labelBrush,
-                    blockX + groupW / 2f - cdSz.Width / 2f,
-                    plotArea.Top + 2f + tfSz.Height + 2f
-                );
+                g.DrawString(cdTxt, labelFont, labelBrush,
+                             blockX + groupW / 2f - cdSz.Width / 2f,
+                             plotArea.Top + 2f + tfSz.Height + 2f);
 
-                // — Candles on top —
+                //
+                // B) Draw candles
+                //
                 for (int c = 0; c < cnt; c++)
                 {
-                    int rawIndex = cnt - 1 - c;
-                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar) continue;
+                    int rawIndex = cnt - 1 - c; // 0 → newest, cnt–1 → oldest
+                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar)
+                        continue;
 
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
@@ -205,14 +173,12 @@ namespace POWER_OF_THREE
                     float top = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
-                    // interval label above wick
-                    string ivlLbl = bar.TimeLeft.Minute.ToString();
-                    var ivSz = g.MeasureString(ivlLbl, ivlLabelFont);
-                    g.DrawString(
-                        ivlLbl, ivlLabelFont, ivlLabelBr,
-                        xLeft + (barW - ivSz.Width) / 2f,
-                        yH - ivSz.Height - 2f
-                    );
+                    // interval label above the wick
+                    string ivLbl = bar.TimeLeft.Minute.ToString();
+                    var ivSz = g.MeasureString(ivLbl, ivlFont);
+                    g.DrawString(ivLbl, ivlFont, ivlBrush,
+                                 xLeft + (barW - ivSz.Width) / 2f,
+                                 yH - ivSz.Height - 2f);
 
                     // wick
                     using (var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth))
@@ -233,6 +199,79 @@ namespace POWER_OF_THREE
                         g.DrawRectangle(penB, xLeft, top, barW, hgt);
                     }
                 }
+
+                //
+                // C) FVG / Imbalance boxes *after* candles
+                //
+                if (ShowImbalances)
+                {
+                    // for each triple oldest→middle→newest (i = 2..cnt–1)
+                    for (int i = 2; i < cnt; i++)
+                    {
+                        var oldest = data[i - 2, SeekOriginHistory.End] as HistoryItemBar;
+                        var middle = data[i - 1, SeekOriginHistory.End] as HistoryItemBar;
+                        var newestI = data[i, SeekOriginHistory.End] as HistoryItemBar;
+                        if (oldest == null || middle == null || newestI == null)
+                            continue;
+
+                        // bullish FVG: middle.Low & newest.Close both above oldest.High
+                        if (middle.Low > oldest.High && newestI.Close > oldest.High)
+                        {
+                            int cMid = cnt - 1 - (i - 1);
+                            float x = blockX + cMid * stepW;
+                            float yTop = (float)conv.GetChartY(oldest.High);
+                            float yBot = (float)conv.GetChartY(middle.Low);
+                            using var brush = new SolidBrush(Color.FromArgb(180, 128, 128, 128));
+                            g.FillRectangle(brush, x, yTop, barW, yBot - yTop);
+                        }
+
+                        // bearish FVG: middle.High & newest.Close both below oldest.Low
+                        if (middle.High < oldest.Low && newestI.Close < oldest.Low)
+                        {
+                            int cMid = cnt - 1 - (i - 1);
+                            float x = blockX + cMid * stepW;
+                            float yTop = (float)conv.GetChartY(middle.High);
+                            float yBot = (float)conv.GetChartY(oldest.Low);
+                            using var brush = new SolidBrush(Color.FromArgb(180, 128, 128, 128));
+                            g.FillRectangle(brush, x, yTop, barW, yBot - yTop);
+                        }
+                    }
+                }
+                // …after you draw your candles, *then* do:
+
+                // ——— Fair-Value-Gap / Imbalance ———
+                if (ShowImbalances)
+                {
+                    // data[0] = newest, data[1] = 1 bar ago, data[2] = 2 bars ago, etc.
+                    for (int k = 0; k < cnt - 2; k++)
+                    {
+                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest of the trio
+                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle bar
+                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest of the trio
+
+                        if (bNew == null || bMid == null || bOld == null)
+                            continue;
+
+                        // UAlgo 3-bar FVG logic:
+                        bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
+                        bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
+
+                        if (bullFVG || bearFVG)
+                        {
+                            // compute on-screen X for the *middle* bar:
+                            int cMid = cnt - 1 - (k + 1);
+                            float xMid = blockX + cMid * stepW;
+
+                            // compute gap top/bottom
+                            float yTop = (float)conv.GetChartY(bOld.High);
+                            float yBot = (float)conv.GetChartY(bNew.Low);
+
+                            using var brush = new SolidBrush(Color.FromArgb(200, 128, 128, 128));
+                            g.FillRectangle(brush, xMid, yTop, barW, yBot - yTop);
+                        }
+                    }
+                }
+
 
                 cumOffset += groupW + GroupSpacing;
             }
