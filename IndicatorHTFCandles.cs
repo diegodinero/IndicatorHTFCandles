@@ -69,6 +69,12 @@ namespace POWER_OF_THREE
         [InputParameter("Doji Wick", 33)]
         public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
+        // ← after your existing input parameters…
+        [InputParameter("Label Font", 35)]
+        public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
+
+        [InputParameter("Interval Label Color", 36)]
+        public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[5];
@@ -119,6 +125,9 @@ namespace POWER_OF_THREE
 
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
+
+            using var intevallabelFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
+            using var intervallabelBrush = new SolidBrush(IntervalLabelColor);
 
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
 
@@ -178,6 +187,12 @@ namespace POWER_OF_THREE
                     float yC = (float)conv.GetChartY(bar.Close);
                     float top = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
+                    // 1) draw interval label above candle
+                    string lbl = bar.TimeLeft.Minute.ToString();
+                    var lblSize = g.MeasureString(lbl, labelFont);
+                    float lblX = xLeft + (barW - lblSize.Width) * 0.5f;
+                    float lblY = top - lblSize.Height - 2f;
+                    g.DrawString(lbl, IntervalLabelFont, intervallabelBrush, lblX, lblY);
 
                     // wick
                     using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth);
