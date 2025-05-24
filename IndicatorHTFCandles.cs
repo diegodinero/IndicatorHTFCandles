@@ -73,11 +73,9 @@ namespace POWER_OF_THREE
             var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5 };
 
             for (int i = 0; i < 5; i++)
-            {
                 _hist[i] = (uses[i] && candlesCount[i] > 0)
-                    ? SymbolExtensions.GetHistory(this.Symbol, periods[i], this.Symbol.HistoryType, candlesCount[i])
-                    : null;
-            }
+                         ? SymbolExtensions.GetHistory(this.Symbol, periods[i], this.Symbol.HistoryType, candlesCount[i])
+                         : null;
         }
 
         public override void OnPaintChart(PaintChartEventArgs args)
@@ -89,16 +87,17 @@ namespace POWER_OF_THREE
             var conv = CurrentChart.Windows[args.WindowIndex].CoordinatesConverter;
             var plotArea = args.Rectangle;
 
-            // 1) bar sizing
+            // 1) compute bar width & step
             int bw = CurrentChart.BarsWidth;
             if (bw > 5) bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
             float barW = UseCustomBarWidth ? CustomBarWidth : bw;
             float stepW = barW + CandleSpacing;
 
-            // 2) anchor at last main-chart bar so indicator scrolls
-            var lastMainTime = this.HistoricalData[this.HistoricalData.Count - 1, SeekOriginHistory.Begin].TimeLeft;
-            float lastBarX = (float)conv.GetChartX(lastMainTime);
-            float rightX = lastBarX + stepW + Offset;
+            // 2) anchor at last main-chart bar so it scrolls
+            var lastTime = HistoricalData[HistoricalData.Count - 1, SeekOriginHistory.Begin].TimeLeft;
+            float lastX = (float)conv.GetChartX(lastTime);
+            // first TF1 block starts one step right of that:
+            float baseX = lastX + stepW + Offset;
 
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
@@ -106,6 +105,7 @@ namespace POWER_OF_THREE
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
             var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
 
+            // cumulative rightward offset
             float cumOffset = 0f;
             for (int tfIdx = 0; tfIdx < 5; tfIdx++)
             {
@@ -114,38 +114,39 @@ namespace POWER_OF_THREE
                     continue;
 
                 int cnt = data.Count;
-                float groupW = cnt * stepW;
+                float groupW = cnt * stepW;  // total width of this block
 
-                float blockRight = rightX - cumOffset;
+                // this block's **leftmost** candle X (newest)
+                float blockX = baseX + cumOffset;
 
-                // — timeframe label —
+                // — draw TimeFrame label above center of block —
                 string fullTf = data.Aggregation.GetPeriod.ToString();
                 string tfText = Abbreviate(fullTf);
                 var tfSz = g.MeasureString(tfText, labelFont);
-                float tfX = blockRight - groupW / 2f - tfSz.Width / 2f;
-                float tfY = plotArea.Top + 2f;
-                g.DrawString(tfText, labelFont, labelBrush, tfX, tfY);
+                g.DrawString(tfText, labelFont, labelBrush,
+                             blockX + groupW / 2f - tfSz.Width / 2f,
+                             plotArea.Top + 2f);
 
-                // — countdown —
+                // — draw countdown below label (same calculation) —
                 var newest = (HistoryItemBar)data[0, SeekOriginHistory.End];
                 var parts = fullTf.Split('-');
                 int v = int.Parse(parts[0]);
                 string u = parts[1].ToLowerInvariant();
                 TimeSpan span = u.StartsWith("min") ? TimeSpan.FromMinutes(v)
-                              : u.StartsWith("hour") ? TimeSpan.FromHours(v)
-                              : u.StartsWith("day") ? TimeSpan.FromDays(v)
-                              : u.StartsWith("week") ? TimeSpan.FromDays(7 * v)
-                              : TimeSpan.Zero;
-                var nextTfClose = newest.TimeLeft.ToUniversalTime().Add(span);
-                var rem = nextTfClose - DateTime.UtcNow;
+                                 : u.StartsWith("hour") ? TimeSpan.FromHours(v)
+                                 : u.StartsWith("day") ? TimeSpan.FromDays(v)
+                                 : u.StartsWith("week") ? TimeSpan.FromDays(7 * v)
+                                 : TimeSpan.Zero;
+                var nextClose = newest.TimeLeft.ToUniversalTime().Add(span);
+                var rem = nextClose - DateTime.UtcNow;
                 if (rem < TimeSpan.Zero) rem = TimeSpan.Zero;
                 string cdTxt = $"({rem.Hours:D2}:{rem.Minutes:D2}:{rem.Seconds:D2})";
                 var cdSz = g.MeasureString(cdTxt, labelFont);
-                float cdX = blockRight - groupW / 2f - cdSz.Width / 2f;
-                float cdY = tfY + tfSz.Height + 2f;
-                g.DrawString(cdTxt, labelFont, labelBrush, cdX, cdY);
+                g.DrawString(cdTxt, labelFont, labelBrush,
+                             blockX + groupW / 2f - cdSz.Width / 2f,
+                             plotArea.Top + 2f + tfSz.Height + 2f);
 
-                // — candles from newest (c=0) inward —
+                // — draw each candle outwards to the right —
                 for (int c = 0; c < cnt; c++)
                 {
                     if (data[c, SeekOriginHistory.End] is not HistoryItemBar bar)
@@ -154,35 +155,35 @@ namespace POWER_OF_THREE
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
 
-                    float x = blockRight
-                              - c * stepW
-                              - barW;
+                    // each new candle sits further right:
+                    float xLeft = blockX + c * stepW;
 
                     float yO = (float)conv.GetChartY(bar.Open);
                     float yC = (float)conv.GetChartY(bar.Close);
                     float top = isDoji ? yC : Math.Min(yO, yC);
-                    float h = isDoji ? 1f : Math.Abs(yC - yO);
+                    float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
                     // wick
                     using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth);
                     float yH = (float)conv.GetChartY(bar.High);
                     float yL = (float)conv.GetChartY(bar.Low);
-                    float mid = x + barW * 0.5f;
+                    float mid = xLeft + barW * 0.5f;
                     g.DrawLine(penW, mid, yH, mid, top);
-                    g.DrawLine(penW, mid, top + h, mid, yL);
+                    g.DrawLine(penW, mid, top + hgt, mid, yL);
 
                     // body
                     using var br = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill));
-                    g.FillRectangle(br, x, top, barW, h);
+                    g.FillRectangle(br, xLeft, top, barW, hgt);
 
                     // border
                     if (DrawBorder)
                     {
                         using var penB = new Pen(isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder), BorderWidth);
-                        g.DrawRectangle(penB, x, top, barW, h);
+                        g.DrawRectangle(penB, xLeft, top, barW, hgt);
                     }
                 }
 
+                // step right for next TF-block
                 cumOffset += groupW + GroupSpacing;
             }
         }
