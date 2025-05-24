@@ -165,7 +165,9 @@ namespace POWER_OF_THREE
                 // draw each candle left→right
                 for (int c = 0; c < cnt; c++)
                 {
-                    if (data[c, SeekOriginHistory.End] is not HistoryItemBar bar) continue;
+                    int rawIndex = cnt - 1 - c;  // rawIndex=0 is oldest, rawIndex=cnt-1 is newest
+                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar)
+                        continue;
 
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
