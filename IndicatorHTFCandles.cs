@@ -175,9 +175,14 @@ namespace POWER_OF_THREE
                 string fullTf = data.Aggregation.GetPeriod.ToString();
                 string tfText = Abbreviate(fullTf);
                 var tfSz = g.MeasureString(tfText, labelFont);
-                g.DrawString(tfText, labelFont, labelBrush,
+                g.DrawString(
+                             tfText,
+                             labelFont,
+                             labelBrush,
                              blockX + groupW / 2f - tfSz.Width / 2f,
-                             plotArea.Top + 2f);
+                             plotArea.Top + 2f
+                             );
+
 
                 var newestBar = (HistoryItemBar)data[0, SeekOriginHistory.End];
                 // compute countdown
@@ -343,17 +348,37 @@ namespace POWER_OF_THREE
             }
         }
 
-        private string Abbreviate(string full)
+        /// <summary>
+        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
+        /// </summary>
+        /// <summary>
+        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
+        /// </summary>
+        private string Abbreviate(string fullPeriod)
         {
-            var p = full.Split('-');
-            if (p.Length != 2) return full;
-            var n = p[0];
-            var u = p[1].ToLowerInvariant();
-            return u.StartsWith("min") ? n + "m"
-                 : u.StartsWith("hour") ? n + "H"
-                 : u.StartsWith("day") ? n + "D"
-                 : u.StartsWith("week") ? n + "W"
-                 : full;
+            if (string.IsNullOrEmpty(fullPeriod))
+                return fullPeriod;
+
+            // split on the ASCII hyphen-minus
+            var parts = fullPeriod.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+                return fullPeriod.Trim();
+
+            var value = parts[0].Trim();           // e.g. "5", "1"
+            var unit = parts[1].Trim().ToLower();  // e.g. "minute", "hour", ...
+
+            if (unit.StartsWith("min"))
+                return value + "m";
+            if (unit.StartsWith("hour"))
+                return value + "H";
+            if (unit.StartsWith("day"))
+                return value + "D";
+            if (unit.StartsWith("week"))
+                return value + "W";
+
+            return fullPeriod.Trim();
         }
+
+
     }
 }
