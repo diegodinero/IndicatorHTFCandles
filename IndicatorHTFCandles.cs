@@ -262,12 +262,15 @@ namespace POWER_OF_THREE
                             int cMid = cnt - 1 - (k + 1);
                             float xMid = blockX + cMid * stepW;
 
+                            int cOld = cnt - 1 - (k + 2);
+                            float xOld = blockX + cOld * stepW;
+
                             // compute gap top/bottom
                             float yTop = (float)conv.GetChartY(bOld.Low);
                             float yBot = (float)conv.GetChartY(bNew.High);
 
                             using var brush = new SolidBrush(Color.FromArgb(200, 128, 128, 128));
-                            g.FillRectangle(brush, xMid, yTop, barW, yBot - yTop);
+                            g.FillRectangle(brush, xOld, yTop, barW * 3, yBot - yTop);
                         }
                     }
                 }
