@@ -11,21 +11,21 @@ namespace POWER_OF_THREE
         //—— Pick up to 5 Timeframes ———————————————————————————————————————————————
         [InputParameter("Use TF #1", 1)] public bool UseTF1 { get; set; } = true;
         [InputParameter("TF #1 Period", 2)] public Period TFPeriod1 { get; set; } = Period.MIN5;
-        [InputParameter("TF #1 Candles", 3)] public int Candles1 { get; set; } = 4;
+        [InputParameter("TF #1 Candles", 3)] public int Candles1 { get; set; } = 10;
 
-        [InputParameter("Use TF #2", 4)] public bool UseTF2 { get; set; } = false;
+        [InputParameter("Use TF #2", 4)] public bool UseTF2 { get; set; } = true;
         [InputParameter("TF #2 Period", 5)] public Period TFPeriod2 { get; set; } = Period.MIN15;
-        [InputParameter("TF #2 Candles", 6)] public int Candles2 { get; set; } = 4;
+        [InputParameter("TF #2 Candles", 6)] public int Candles2 { get; set; } = 10;
 
-        [InputParameter("Use TF #3", 7)] public bool UseTF3 { get; set; } = false;
+        [InputParameter("Use TF #3", 7)] public bool UseTF3 { get; set; } = true;
         [InputParameter("TF #3 Period", 8)] public Period TFPeriod3 { get; set; } = Period.HOUR1;
-        [InputParameter("TF #3 Candles", 9)] public int Candles3 { get; set; } = 4;
+        [InputParameter("TF #3 Candles", 9)] public int Candles3 { get; set; } = 10;
 
-        [InputParameter("Use TF #4", 10)] public bool UseTF4 { get; set; } = false;
+        [InputParameter("Use TF #4", 10)] public bool UseTF4 { get; set; } = true;
         [InputParameter("TF #4 Period", 11)] public Period TFPeriod4 { get; set; } = Period.HOUR4;
-        [InputParameter("TF #4 Candles", 12)] public int Candles4 { get; set; } = 4;
+        [InputParameter("TF #4 Candles", 12)] public int Candles4 { get; set; } = 10;
 
-        [InputParameter("Use TF #5", 13)] public bool UseTF5 { get; set; } = false;
+        [InputParameter("Use TF #5", 13)] public bool UseTF5 { get; set; } = true;
         [InputParameter("TF #5 Period", 14)] public Period TFPeriod5 { get; set; } = Period.DAY1;
         [InputParameter("TF #5 Candles", 15)] public int Candles5 { get; set; } = 4;
 
@@ -36,22 +36,38 @@ namespace POWER_OF_THREE
         [InputParameter("Candle Spacing (px)", 18)] public int CandleSpacing { get; set; } = 2;
         [InputParameter("Inter-Group Spacing", 19)] public int GroupSpacing { get; set; } = 20;
         [InputParameter("Horizontal Offset", 20)] public int Offset { get; set; } = 0;
-        [InputParameter("Label Color", 21)] public Color LabelColor { get; set; } = Color.White;
+        [InputParameter("Indicator Spacing (px)", 21)] public int IndicatorSpacing { get; set; } = 40;
+        [InputParameter("Label Color", 22)] public Color LabelColor { get; set; } = Color.White;
 
-        [InputParameter("Decr Fill", 22)] public Color DecrFill { get; set; } = Color.FromArgb(85, Color.IndianRed);
-        [InputParameter("Incr Fill", 23)] public Color IncrFill { get; set; } = Color.FromArgb(85, Color.DarkGreen);
-        [InputParameter("Doji Fill", 24)] public Color DojiFill { get; set; } = Color.Gray;
+        [InputParameter("Decr Fill", 22)]
+        public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
 
-        [InputParameter("Draw Border", 25)] public bool DrawBorder { get; set; } = true;
-        [InputParameter("Border Width", 26)] public int BorderWidth { get; set; } = 1;
-        [InputParameter("Decr Border", 27)] public Color DecrBorder { get; set; } = Color.IndianRed;
-        [InputParameter("Incr Border", 28)] public Color IncrBorder { get; set; } = Color.DarkGreen;
-        [InputParameter("Doji Border", 29)] public Color DojiBorder { get; set; } = Color.Gray;
+        [InputParameter("Incr Fill", 23)]
+        public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
 
-        [InputParameter("Wick Width", 30)] public int WickWidth { get; set; } = 1;
-        [InputParameter("Decr Wick", 31)] public Color DecrWick { get; set; } = Color.IndianRed;
-        [InputParameter("Incr Wick", 32)] public Color IncrWick { get; set; } = Color.DarkGreen;
-        [InputParameter("Doji Wick", 33)] public Color DojiWick { get; set; } = Color.Gray;
+        [InputParameter("Doji Fill", 24)]
+        public Color DojiFill { get; set; } = Color.Gray;
+
+        [InputParameter("Draw Border", 26)] public bool DrawBorder { get; set; } = true;
+        [InputParameter("Border Width", 27)] public int BorderWidth { get; set; } = 1;
+        [InputParameter("Decr Border", 27)]
+        public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+
+        [InputParameter("Incr Border", 28)]
+        public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+
+        [InputParameter("Doji Border", 29)]
+        public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+
+        [InputParameter("Wick Width", 31)] public int WickWidth { get; set; } = 1;
+        [InputParameter("Decr Wick", 31)]
+        public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+
+        [InputParameter("Incr Wick", 32)]
+        public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+
+        [InputParameter("Doji Wick", 33)]
+        public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
 
         //—— Internal Storage ————————————————————————————————————————————————
@@ -81,7 +97,8 @@ namespace POWER_OF_THREE
         public override void OnPaintChart(PaintChartEventArgs args)
         {
             base.OnPaintChart(args);
-            if (CurrentChart == null) return;
+            if (CurrentChart == null || HistoricalData.Count == 0)
+                return;
 
             var g = args.Graphics;
             var conv = CurrentChart.Windows[args.WindowIndex].CoordinatesConverter;
@@ -93,19 +110,18 @@ namespace POWER_OF_THREE
             float barW = UseCustomBarWidth ? CustomBarWidth : bw;
             float stepW = barW + CandleSpacing;
 
-            // 2) anchor at last main-chart bar so it scrolls
+            // 2) anchor at last main-chart bar so indicator scrolls
             var lastTime = HistoricalData[HistoricalData.Count - 1, SeekOriginHistory.Begin].TimeLeft;
             float lastX = (float)conv.GetChartX(lastTime);
-            // first TF1 block starts one step right of that:
-            float baseX = lastX + stepW + Offset;
+
+            // add the indicator spacing here
+            float baseX = lastX + stepW + Offset + IndicatorSpacing;
 
             using var labelFont = new Font("Tahoma", 8f);
             using var labelBrush = new SolidBrush(LabelColor);
 
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5 };
-            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5 };
 
-            // cumulative rightward offset
             float cumOffset = 0f;
             for (int tfIdx = 0; tfIdx < 5; tfIdx++)
             {
@@ -114,12 +130,12 @@ namespace POWER_OF_THREE
                     continue;
 
                 int cnt = data.Count;
-                float groupW = cnt * stepW;  // total width of this block
+                float groupW = cnt * stepW;
 
-                // this block's **leftmost** candle X (newest)
+                // position the block's first (newest) candle
                 float blockX = baseX + cumOffset;
 
-                // — draw TimeFrame label above center of block —
+                // draw label
                 string fullTf = data.Aggregation.GetPeriod.ToString();
                 string tfText = Abbreviate(fullTf);
                 var tfSz = g.MeasureString(tfText, labelFont);
@@ -127,7 +143,7 @@ namespace POWER_OF_THREE
                              blockX + groupW / 2f - tfSz.Width / 2f,
                              plotArea.Top + 2f);
 
-                // — draw countdown below label (same calculation) —
+                // draw countdown
                 var newest = (HistoryItemBar)data[0, SeekOriginHistory.End];
                 var parts = fullTf.Split('-');
                 int v = int.Parse(parts[0]);
@@ -146,16 +162,14 @@ namespace POWER_OF_THREE
                              blockX + groupW / 2f - cdSz.Width / 2f,
                              plotArea.Top + 2f + tfSz.Height + 2f);
 
-                // — draw each candle outwards to the right —
+                // draw each candle left→right
                 for (int c = 0; c < cnt; c++)
                 {
-                    if (data[c, SeekOriginHistory.End] is not HistoryItemBar bar)
-                        continue;
+                    if (data[c, SeekOriginHistory.End] is not HistoryItemBar bar) continue;
 
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
 
-                    // each new candle sits further right:
                     float xLeft = blockX + c * stepW;
 
                     float yO = (float)conv.GetChartY(bar.Open);
@@ -183,7 +197,6 @@ namespace POWER_OF_THREE
                     }
                 }
 
-                // step right for next TF-block
                 cumOffset += groupW + GroupSpacing;
             }
         }
