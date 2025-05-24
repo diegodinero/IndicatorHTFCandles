@@ -59,6 +59,10 @@ namespace POWER_OF_THREE
 
         [InputParameter("Show FVG Imbalances", 37)] public bool ShowImbalances { get; set; } = true;
 
+        [InputParameter("Imbalance Color", 38)]
+        public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
+
+
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[5];
 
@@ -269,7 +273,7 @@ namespace POWER_OF_THREE
                             float yTop = (float)conv.GetChartY(bOld.Low);
                             float yBot = (float)conv.GetChartY(bNew.High);
 
-                            using var brush = new SolidBrush(Color.FromArgb(200, 128, 128, 128));
+                            using var brush = new SolidBrush(ImbalanceColor);
                             g.FillRectangle(brush, xOld, yTop, barW * 3, yBot - yTop);
                         }
                     }
