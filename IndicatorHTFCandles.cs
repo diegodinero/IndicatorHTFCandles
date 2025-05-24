@@ -9,7 +9,7 @@ namespace POWER_OF_THREE
 {
     public class POWER_OF_THREE_MultiTF : Indicator
     {
-        //—— Pick up to 5 Timeframes ———————————————————————————————————————————————
+        //—— Timeframe Inputs ———————————————————————————————————————————————
         [InputParameter("Use TF #1", 1)] public bool UseTF1 { get; set; } = true;
         [InputParameter("TF #1 Period", 2)] public Period TFPeriod1 { get; set; } = Period.MIN5;
         [InputParameter("TF #1 Candles", 3)] public int Candles1 { get; set; } = 10;
@@ -30,48 +30,44 @@ namespace POWER_OF_THREE
         [InputParameter("TF #5 Period", 14)] public Period TFPeriod5 { get; set; } = Period.DAY1;
         [InputParameter("TF #5 Candles", 15)] public int Candles5 { get; set; } = 4;
 
-        //—— Shared Display Settings —————————————————————————————————————————————
-        [InputParameter("Custom Bar Width", 16)] public bool UseCustomBarWidth { get; set; } = false;
-        [InputParameter("Bar Width (px)", 17)] public int CustomBarWidth { get; set; } = 12;
-        [InputParameter("Candle Spacing (px)", 18)] public int CandleSpacing { get; set; } = 5;
-        [InputParameter("Inter-Group Spacing", 19)] public int GroupSpacing { get; set; } = 20;
-        [InputParameter("Horizontal Offset", 20)] public int Offset { get; set; } = 0;
-        [InputParameter("Indicator Spacing (px)", 21)] public int IndicatorSpacing { get; set; } = 40;
-        [InputParameter("Label Color", 22)] public Color LabelColor { get; set; } = Color.White;
+        //—— New Weekly Timeframe —————————————————————————————————————————————
+        [InputParameter("Use TF #6", 16)] public bool UseTF6 { get; set; } = true;
+        [InputParameter("TF #6 Period", 17)] public Period TFPeriod6 { get; set; } = Period.WEEK1;
+        [InputParameter("TF #6 Candles", 18)] public int Candles6 { get; set; } = 4;
 
-        [InputParameter("Decr Fill", 23)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
-        [InputParameter("Incr Fill", 24)] public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
-        [InputParameter("Doji Fill", 25)] public Color DojiFill { get; set; } = Color.Gray;
+        //—— Shared Display Settings ———————————————————————————————————————————
+        [InputParameter("Custom Bar Width", 19)] public bool UseCustomBarWidth { get; set; } = false;
+        [InputParameter("Bar Width (px)", 20)] public int CustomBarWidth { get; set; } = 12;
+        [InputParameter("Candle Spacing (px)", 21)] public int CandleSpacing { get; set; } = 5;
+        [InputParameter("Inter-Group Spacing", 22)] public int GroupSpacing { get; set; } = 20;
+        [InputParameter("Horizontal Offset", 23)] public int Offset { get; set; } = 0;
+        [InputParameter("Indicator Spacing (px)", 24)] public int IndicatorSpacing { get; set; } = 40;
+        [InputParameter("Label Color", 25)] public Color LabelColor { get; set; } = Color.White;
 
-        [InputParameter("Draw Border", 26)] public bool DrawBorder { get; set; } = true;
-        [InputParameter("Border Width", 27)] public int BorderWidth { get; set; } = 1;
-        [InputParameter("Decr Border", 28)] public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Incr Border", 29)] public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Doji Border", 30)] public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Decr Fill", 26)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
+        [InputParameter("Incr Fill", 27)] public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
+        [InputParameter("Doji Fill", 28)] public Color DojiFill { get; set; } = Color.Gray;
 
-        [InputParameter("Wick Width", 31)] public int WickWidth { get; set; } = 1;
-        [InputParameter("Decr Wick", 32)] public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Incr Wick", 33)] public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Doji Wick", 34)] public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Draw Border", 29)] public bool DrawBorder { get; set; } = true;
+        [InputParameter("Border Width", 30)] public int BorderWidth { get; set; } = 1;
+        [InputParameter("Decr Border", 31)] public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Border", 32)] public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Border", 33)] public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Label Font", 35)] public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
-        [InputParameter("Interval Label Color", 36)] public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Wick Width", 34)] public int WickWidth { get; set; } = 1;
+        [InputParameter("Decr Wick", 35)] public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Wick", 36)] public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Wick", 37)] public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Show FVG Imbalances", 37)] public bool ShowImbalances { get; set; } = true;
+        [InputParameter("Label Font", 38)] public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
+        [InputParameter("Interval Label Color", 39)] public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Imbalance Color", 38)]
-        public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
+        [InputParameter("Show FVG Imbalances", 40)] public bool ShowImbalances { get; set; } = true;
+        [InputParameter("Imbalance Color", 41)] public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
 
-        [InputParameter("Show Volume Imbalances", 39)]
-        public bool ShowVolumeImbalances { get; set; } = true;
+        [InputParameter("Show Volume Imbalances", 42)] public bool ShowVolumeImbalances { get; set; } = true;
+        [InputParameter("Volume Imbalance Color", 43)] public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
 
-        [InputParameter("Volume Imbalance Color", 40)]
-        public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
-
-        // —— New Weekly timeframe ———————————————————————————————————————————————
-        [InputParameter("Use TF #6", 41)] public bool UseTF6 { get; set; } = true;
-        [InputParameter("TF #6 Period", 42)] public Period TFPeriod6 { get; set; } = Period.WEEK1;
-        [InputParameter("TF #6 Candles", 43)] public int Candles6 { get; set; } = 4;
 
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[6];
