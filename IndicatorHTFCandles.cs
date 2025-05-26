@@ -100,28 +100,36 @@ namespace POWER_OF_THREE
                 return;
 
             var g = args.Graphics;
-            var conv = CurrentChart.Windows[args.WindowIndex].CoordinatesConverter;
-            var plotArea = args.Rectangle;
+            var conv = CurrentChart
+                        .Windows[args.WindowIndex]
+                        .CoordinatesConverter;
+            var plot = args.Rectangle;
 
-            // 1) bar sizing
-            int bw = CurrentChart.BarsWidth;
-            if (bw > 5) bw = (bw % 2 != 0) ? bw - 2 : bw - 1;
-            float barW = UseCustomBarWidth ? CustomBarWidth : bw;
+            // 1) sizing
+            int rawBw = CurrentChart.BarsWidth;
+            if (rawBw > 5) rawBw = (rawBw % 2 != 0) ? rawBw - 2 : rawBw - 1;
+            float barW = UseCustomBarWidth ? CustomBarWidth : rawBw;
             float stepW = barW + CandleSpacing;
 
-            // 2) anchor just off the last real bar so the whole block scrolls
+            // 2) anchor off last real bar
             var lastTime = HistoricalData[HistoricalData.Count - 1, SeekOriginHistory.Begin].TimeLeft;
             float lastX = (float)conv.GetChartX(lastTime);
-
             float baseX = lastX + stepW + Offset + IndicatorSpacing;
 
-            using var labelFont = new Font("Tahoma", 8f);
-            using var labelBrush = new SolidBrush(LabelColor);
-            using var ivlFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
+            using var lblFont = new Font("Tahoma", 8f);
+            using var lblBrush = new SolidBrush(LabelColor);
+            using var ivlFont = new Font(IntervalLabelFont.FontFamily,
+                                           IntervalLabelFont.Size,
+                                           IntervalLabelFont.Style);
             using var ivlBrush = new SolidBrush(IntervalLabelColor);
 
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
-            float cumOffset = 0f;
+            float cumOff = 0;
+
+            // for EST conversions:
+            var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var nowUtc = DateTime.UtcNow;
+            var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
 
             for (int tfIdx = 0; tfIdx < 6; tfIdx++)
             {
@@ -130,130 +138,185 @@ namespace POWER_OF_THREE
                     continue;
 
                 int cnt = data.Count;
-                float groupW = cnt * stepW;
-                float blockX = baseX + cumOffset;
+                float gW = cnt * stepW;
+                float blockX = baseX + cumOff;
 
-                // ——— Fair-Value-Gap / Imbalance ———
+                // ——— FVG / imbalances ———
+                // ——— FVG / Imbalance ———
                 if (ShowImbalances)
                 {
-                    // data[0] = newest, data[1] = 1 bar ago, data[2] = 2 bars ago, etc.
                     for (int k = 0; k < cnt - 2; k++)
                     {
-                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest of the trio
-                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle bar
-                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest of the trio
-
+                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest
+                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle
+                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest
                         if (bNew == null || bMid == null || bOld == null)
                             continue;
 
-                        // UAlgo 3-bar FVG logic:
                         bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
                         bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
+                        if (!(bullFVG || bearFVG))
+                            continue;
 
-                        if (bullFVG || bearFVG)
+                        // X coordinate of the *old* bar
+                        int cOld = cnt - 1 - (k + 2);
+                        float xOld = blockX + cOld * stepW;
+
+                        // pick correct Y-bounds so height = (bottom pixel) – (top pixel) ≥ 0
+                        float yTop, yBot;
+                        if (bullFVG)
                         {
-                            // compute on-screen X for the *middle* bar:
-                            int cMid = cnt - 1 - (k + 1);
-                            float xMid = blockX + cMid * stepW;
-
-                            int cOld = cnt - 1 - (k + 2);
-                            float xOld = blockX + cOld * stepW;
-
-                            // compute gap top/bottom
-                            float yTop = (float)conv.GetChartY(bOld.Low);
-                            float yBot = (float)conv.GetChartY(bNew.High);
-
-                            using var brush = new SolidBrush(ImbalanceColor);
-                            g.FillRectangle(brush, xOld, yTop, barW * 3, yBot - yTop);
+                            // bullish gap up: new.low > old.high
+                            // on screen: new.low (higher price → smaller Y) is top,
+                            //             old.high (lower price → larger Y) is bottom
+                            yTop = (float)conv.GetChartY(bNew.Low);
+                            yBot = (float)conv.GetChartY(bOld.High);
                         }
+                        else // bearFVG
+                        {
+                            // bearish gap down: new.high < old.low
+                            // on screen: old.low (higher price → smaller Y) is top,
+                            //             new.high (lower price → larger Y) is bottom
+                            yTop = (float)conv.GetChartY(bOld.Low);
+                            yBot = (float)conv.GetChartY(bNew.High);
+                        }
+
+                        using var brush = new SolidBrush(ImbalanceColor);
+                        // new: covers 3 bars + their inter‐bar spacing
+                        g.FillRectangle(brush, xOld, yTop, stepW * 3, yBot - yTop);
+
                     }
                 }
 
-                //
-                // A) Timeframe label & countdown
-                //
-                string fullTf = data.Aggregation.GetPeriod.ToString();
+
+                // — A) timeframe label — countdown ——
+                string fullTf = data.Aggregation.GetPeriod.ToString();       // e.g. "4 - Hour"
                 string tfText = Abbreviate(fullTf);
-                var tfSz = g.MeasureString(tfText, labelFont);
+                var tfSz = g.MeasureString(tfText, lblFont);
                 g.DrawString(
-                             tfText,
-                             labelFont,
-                             labelBrush,
-                             blockX + groupW / 2f - tfSz.Width / 2f,
-                             plotArea.Top + 2f
-                             );
-
-
-                var newestBar = (HistoryItemBar)data[0, SeekOriginHistory.End];
-                // compute countdown correctly off the bar's start time:
-                var parts = fullTf.Split('-');
-                int val = int.Parse(parts[0]);
-                string unit = parts[1].ToLowerInvariant();
-                TimeSpan span = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
-                               : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
-                               : unit.StartsWith("day") ? TimeSpan.FromDays(val)
-                               : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
-                               : TimeSpan.Zero;
-
-                // NEW: use bar.Time instead of TimeLeft
-                string cdTxt = data.GetTimeToNextBar();  // <-- this calls HistoricalData.GetTimeToNextBar()
-                var cdSz = g.MeasureString(cdTxt, labelFont);
-                g.DrawString(
-                    cdTxt,
-                    labelFont,
-                    labelBrush,
-                    blockX + groupW / 2f - cdSz.Width / 2f,
-                    plotArea.Top + 2f + tfSz.Height + 2f
+                    tfText, lblFont, lblBrush,
+                    blockX + gW / 2f - tfSz.Width / 2f,
+                    plot.Top + 2f
                 );
 
-                //
-                // B) Draw candles
-                //
+                // compute countdown to next bucket (in EST)…
+                var parts = fullTf.Split('-');
+                int val = int.Parse(parts[0].Trim());
+                string unit = parts[1].Trim().ToLowerInvariant();
+
+                // determine bucket start in EST
+                DateTime bucketStart;
+                TimeSpan duration = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
+                                 : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                                 : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                                 : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                                 : TimeSpan.Zero;
+
+                if (unit.StartsWith("min"))
+                {
+                    var hrBase = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, nowEst.Hour, 0, 0);
+                    int segMin = (nowEst.Minute / val) * val;
+                    bucketStart = hrBase.AddMinutes(segMin);
+                }
+                else if (unit.StartsWith("hour"))
+                {
+                    if (val == 4)
+                    {
+                        // 4xHanchored at 18:00 EST
+                        var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
+                        if (nowEst < anchor) anchor = anchor.AddDays(-1);
+                        double hrsSince = (nowEst - anchor).TotalHours;
+                        int seg = (int)Math.Floor(hrsSince / 4);
+                        bucketStart = anchor.AddHours(seg * 4);
+                    }
+                    else
+                    {
+                        // other H anchored at midnight
+                        var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 0, 0, 0);
+                        double hrsSince = (nowEst - anchor).TotalHours;
+                        int seg = (int)Math.Floor(hrsSince / val);
+                        bucketStart = anchor.AddHours(seg * val);
+                    }
+                }
+                else if (unit.StartsWith("day"))
+                {
+                    // daily at 18:00
+                    bucketStart = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
+                    if (nowEst < bucketStart)
+                        bucketStart = bucketStart.AddDays(-1);
+                }
+                else if (unit.StartsWith("week"))
+                {
+                    // weekly from Sunday 18:00 EST
+                    int dow = (int)nowEst.DayOfWeek;           // Sunday=0…Saturday=6
+                                                               // find last Sunday:
+                    var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0)
+                                     .AddDays(-dow);
+                    if (nowEst < anchor)
+                        anchor = anchor.AddDays(-7);
+                    bucketStart = anchor;
+                }
+                else
+                {
+                    bucketStart = nowEst;
+                }
+
+                var bucketEnd = bucketStart + duration;
+                var remaining = bucketEnd - nowEst;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                string cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+
+                var cdSz = g.MeasureString(cdTxt, lblFont);
+                g.DrawString(
+                    cdTxt, lblFont, lblBrush,
+                    blockX + gW / 2f - cdSz.Width / 2f,
+                    plot.Top + 2f + tfSz.Height + 2f
+                );
+
+                // — B) draw the candles/labels exactly as you had before —
                 for (int c = 0; c < cnt; c++)
                 {
-                    int rawIndex = cnt - 1 - c; // 0 → newest, cnt–1 → oldest
-                    if (data[rawIndex, SeekOriginHistory.End] is not HistoryItemBar bar)
+                    if (data[cnt - 1 - c, SeekOriginHistory.End] is not HistoryItemBar bar)
                         continue;
 
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
 
-                    float xLeft = blockX + c * stepW;
+                    float xL = blockX + c * stepW;
                     float yH = (float)conv.GetChartY(bar.High);
                     float yL = (float)conv.GetChartY(bar.Low);
                     float yO = (float)conv.GetChartY(bar.Open);
                     float yC = (float)conv.GetChartY(bar.Close);
-                    float top = isDoji ? yC : Math.Min(yO, yC);
+                    float topBody = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
-                    // — interval label above the wick —
-                    // get the raw period string, lower-cased
+                    // —— interval label above wick in EST ——
                     DateTime barUtc = bar.TimeLeft.ToUniversalTime();
-                    DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc,
-                                         TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"));
+                    DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc, estZone);
 
-                    // pick the label based on the period, but using EST
-                    string lowerTf = data.Aggregation.GetPeriod.ToString().ToLowerInvariant();
+                    string lowerTf = fullTf.ToLowerInvariant();
                     string ivLbl;
-
                     if (lowerTf.Contains("min"))
-                    {
-                        // minute-based TFs still show minute
-                        ivLbl = barEst.Minute.ToString();            // “0”, “5”, “15”…
-                    }
+                        ivLbl = barEst.Minute.ToString();
                     else if (data.Aggregation.GetPeriod == Period.HOUR4)
                     {
-                        // 4-hour buckets: show the EST hour rounded to nearest 4
-                        ivLbl = ((barEst.Hour / 4) * 4).ToString();  // 0,4,8,12,16,20
+                        // anchor at 18:00 EST as before
+                        var anchor = new DateTime(barEst.Year, barEst.Month, barEst.Day, 18, 0, 0);
+                        if (barEst < anchor)
+                            anchor = anchor.AddDays(-1);
+
+                        double hrsSince = (barEst - anchor).TotalHours;
+                        int seg = (int)Math.Floor(hrsSince / 4);
+                        var barBucketStart = anchor.AddHours(seg * 4);
+
+                        // **now label the bucket’s END, not its start**:
+                        var bucketEnds = barBucketStart.AddHours(4);
+                        ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
                     }
+
                     else if (lowerTf.Contains("hour"))
-                    {
-                        // other hourly TFs: show the EST hour
-                        ivLbl = barEst.Hour.ToString();              // “0”–“23”
-                    }
+                        ivLbl = barEst.Hour.ToString();
                     else if (lowerTf.Contains("day"))
-                    {
-                        // daily TFs: one-letter day of week
                         ivLbl = barEst.DayOfWeek switch
                         {
                             DayOfWeek.Monday => "M",
@@ -265,99 +328,75 @@ namespace POWER_OF_THREE
                             DayOfWeek.Sunday => "S",
                             _ => ""
                         };
-                    }
-                    else
-                    {
-                        // fallback to EST hour
-                        ivLbl = barEst.Hour.ToString();
-                    }
+                    else ivLbl = barEst.Hour.ToString();
 
-                    // …then draw ivLbl exactly as before:
                     var ivSz = g.MeasureString(ivLbl, ivlFont);
-                    float xLbl = xLeft + (barW - ivSz.Width) * 0.5f;
+                    float xLbl = xL + (barW - ivSz.Width) / 2f;
                     float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
                     g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
 
                     // wick
-                    using (var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick), WickWidth))
-                    {
-                        float mid = xLeft + barW * 0.5f;
-                        g.DrawLine(penW, mid, yH, mid, top);
-                        g.DrawLine(penW, mid, top + hgt, mid, yL);
-                    }
+                    using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick),
+                                             WickWidth);
+                    float mid = xL + barW / 2f;
+                    g.DrawLine(penW, mid, yH, mid, topBody);
+                    g.DrawLine(penW, mid, topBody + hgt, mid, yL);
 
                     // body
-                    using (var brush = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill)))
-                        g.FillRectangle(brush, xLeft, top, barW, hgt);
+                    using var brdBrush = new SolidBrush(isDoji ? DojiFill
+                                                   : (isBull ? IncrFill : DecrFill));
+                    g.FillRectangle(brdBrush, xL, topBody, barW, hgt);
 
                     // border
                     if (DrawBorder)
                     {
-                        using var penB = new Pen(isDoji ? DojiBorder : (isBull ? IncrBorder : DecrBorder), BorderWidth);
-                        g.DrawRectangle(penB, xLeft, top, barW, hgt);
+                        using var penB = new Pen(isDoji ? DojiBorder
+                                                    : (isBull ? IncrBorder : DecrBorder),
+                                                 BorderWidth);
+                        g.DrawRectangle(penB, xL, topBody, barW, hgt);
                     }
                 }
 
-
-
-                // —————— in your OnPaintChart, after the FVG code ——————
-                // ——— Volume Imbalance Boxes ———
-                // ——— Volume Imbalance Boxes ———
+                // — volume imbalances as before —
                 if (ShowVolumeImbalances)
                 {
-                    // data[0] = newest, data[1] = 1 bar ago, … data[cnt-1] = oldest
                     for (int k = 0; k < cnt - 1; k++)
                     {
-                        var bar1 = data[k, SeekOriginHistory.End] as HistoryItemBar;  // newest
-                        var bar2 = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;  // previous
+                        var b1 = data[k, SeekOriginHistory.End] as HistoryItemBar;
+                        var b2 = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;
+                        if (b1 == null || b2 == null) continue;
 
-                        if (bar1 == null || bar2 == null)
-                            continue;
+                        bool bullVI = b1.Low < b2.High
+                                   && Math.Min(b1.Open, b1.Close)
+                                      > Math.Max(b2.Open, b2.Close);
+                        bool bearVI = b1.High > b2.Low
+                                   && Math.Max(b1.Open, b1.Close)
+                                      < Math.Min(b2.Open, b2.Close);
+                        if (!(bullVI || bearVI)) continue;
 
-                        bool bullVI = bar1.Low < bar2.High
-                                   && Math.Min(bar1.Open, bar1.Close) > Math.Max(bar2.Open, bar2.Close);
-
-                        bool bearVI = bar1.High > bar2.Low
-                                   && Math.Max(bar1.Open, bar1.Close) < Math.Min(bar2.Open, bar2.Close);
-
-                        if (!bullVI && !bearVI)
-                            continue;
-
-                        // horizontal pixel coords
                         int c1 = cnt - 1 - k;
                         int c2 = cnt - 1 - (k + 1);
-                        float xStart = blockX + c2 * stepW;
-                        float xEnd = blockX + c1 * stepW + barW;
+                        float x1 = blockX + c2 * stepW;
+                        float x2 = blockX + c1 * stepW + barW;
+                        float yT = (float)conv.GetChartY(
+                                     bearVI
+                                     ? Math.Min(b2.Open, b2.Close)
+                                     : Math.Min(b1.Open, b1.Close));
+                        float yB = (float)conv.GetChartY(
+                                     bearVI
+                                     ? Math.Max(b1.Open, b1.Close)
+                                     : Math.Max(b2.Open, b2.Close));
 
-                        // vertical price bounds (as doubles)
-                        double topPrice = bearVI
-                            ? Math.Min(bar2.Open, bar2.Close)
-                            : Math.Min(bar1.Open, bar1.Close);
-
-                        double botPrice = bearVI
-                            ? Math.Max(bar1.Open, bar1.Close)
-                            : Math.Max(bar2.Open, bar2.Close);
-
-                        // convert to y‐pixels and cast to float
-                        float yTop = (float)conv.GetChartY(topPrice);
-                        float yBot = (float)conv.GetChartY(botPrice);
-
-                        using var brush = new SolidBrush(VolumeImbalanceColor);
-                        g.FillRectangle(
-                            brush,
-                            xStart,
-                            yTop,
-                            (float)(xEnd - xStart),   // explicit cast here
-                            (float)(yBot - yTop)     // ...and here
-                        );
+                        using var vb = new SolidBrush(VolumeImbalanceColor);
+                        g.FillRectangle(vb, x1, yT,
+                                        x2 - x1, yB - yT);
                     }
                 }
 
-
-
-                cumOffset += groupW + GroupSpacing;
+                cumOff += gW + GroupSpacing;
             }
         }
+
 
         /// <summary>
         /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
