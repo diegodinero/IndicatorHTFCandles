@@ -228,46 +228,51 @@ namespace POWER_OF_THREE
 
                     // — interval label above the wick —
                     // get the raw period string, lower-cased
-                    string tf = data.Aggregation.GetPeriod.ToString().ToLowerInvariant();
+                    DateTime barUtc = bar.TimeLeft.ToUniversalTime();
+                    DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc,
+                                         TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"));
 
-                    // choose label by unit
+                    // pick the label based on the period, but using EST
+                    string lowerTf = data.Aggregation.GetPeriod.ToString().ToLowerInvariant();
                     string ivLbl;
-                    if (tf.Contains("min"))
+
+                    if (lowerTf.Contains("min"))
                     {
-                        // minute-based TFs: “0”, “5”, “15”, “30”…
-                        ivLbl = bar.TimeLeft.Minute.ToString();
+                        // minute-based TFs still show minute
+                        ivLbl = barEst.Minute.ToString();            // “0”, “5”, “15”…
                     }
-                    else if (tf.Contains("hour"))
+                    else if (data.Aggregation.GetPeriod == Period.HOUR4)
                     {
-                        // hourly TFs: “0”–“23”
-                        ivLbl = bar.TimeLeft.Hour.ToString();
+                        // 4-hour buckets: show the EST hour rounded to nearest 4
+                        ivLbl = ((barEst.Hour / 4) * 4).ToString();  // 0,4,8,12,16,20
                     }
-                    else if (tf.Contains("day"))
+                    else if (lowerTf.Contains("hour"))
                     {
-                        // daily TFs: one-letter weekday
-                        switch (bar.TimeLeft.DayOfWeek)
+                        // other hourly TFs: show the EST hour
+                        ivLbl = barEst.Hour.ToString();              // “0”–“23”
+                    }
+                    else if (lowerTf.Contains("day"))
+                    {
+                        // daily TFs: one-letter day of week
+                        ivLbl = barEst.DayOfWeek switch
                         {
-                            case DayOfWeek.Monday: ivLbl = "M"; break;
-                            case DayOfWeek.Tuesday: ivLbl = "T"; break;
-                            case DayOfWeek.Wednesday: ivLbl = "W"; break;
-                            case DayOfWeek.Thursday: ivLbl = "T"; break;
-                            case DayOfWeek.Friday: ivLbl = "F"; break;
-                            case DayOfWeek.Saturday: ivLbl = "S"; break;
-                            case DayOfWeek.Sunday: ivLbl = "S"; break;
-                            default: ivLbl = ""; break;
-                        }
-                    }
-                    else if (tf.Contains("week"))
-                    {
-                        ivLbl = "";
+                            DayOfWeek.Monday => "M",
+                            DayOfWeek.Tuesday => "T",
+                            DayOfWeek.Wednesday => "W",
+                            DayOfWeek.Thursday => "T",
+                            DayOfWeek.Friday => "F",
+                            DayOfWeek.Saturday => "S",
+                            DayOfWeek.Sunday => "S",
+                            _ => ""
+                        };
                     }
                     else
                     {
-                        // fallback to hour
-                        ivLbl = bar.TimeLeft.Hour.ToString();
+                        // fallback to EST hour
+                        ivLbl = barEst.Hour.ToString();
                     }
 
-                    // draw it above the wick
+                    // …then draw ivLbl exactly as before:
                     var ivSz = g.MeasureString(ivLbl, ivlFont);
                     float xLbl = xLeft + (barW - ivSz.Width) * 0.5f;
                     float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
