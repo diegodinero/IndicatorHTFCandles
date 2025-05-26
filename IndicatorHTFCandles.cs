@@ -264,14 +264,32 @@ namespace POWER_OF_THREE
                 var bucketEnd = bucketStart + duration;
                 var remaining = bucketEnd - nowEst;
                 if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-                string cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                string cdTxt;
+                if (unit.StartsWith("min"))
+                {
+                    // under an hour → MM:SS
+                    cdTxt = $"{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+                else if (unit.StartsWith("week"))
+                {
+                    // weeks → D-days + HH:MM:SS
+                    cdTxt = $"{remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+                else
+                {
+                    // hours, days → HH:MM:SS
+                    cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
 
                 var cdSz = g.MeasureString(cdTxt, lblFont);
                 g.DrawString(
-                    cdTxt, lblFont, lblBrush,
+                    cdTxt,
+                    lblFont,
+                    lblBrush,
                     blockX + gW / 2f - cdSz.Width / 2f,
                     plot.Top + 2f + tfSz.Height + 2f
                 );
+
 
                 // — B) draw the candles/labels exactly as you had before —
                 for (int c = 0; c < cnt; c++)
@@ -290,51 +308,53 @@ namespace POWER_OF_THREE
                     float topBody = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
-                    // —— interval label above wick in EST ——
-                    DateTime barUtc = bar.TimeLeft.ToUniversalTime();
-                    DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc, estZone);
-
-                    string lowerTf = fullTf.ToLowerInvariant();
-                    string ivLbl;
-                    if (lowerTf.Contains("min"))
-                        ivLbl = barEst.Minute.ToString();
-                    else if (data.Aggregation.GetPeriod == Period.HOUR4)
+                    if (data.Aggregation.GetPeriod != Period.WEEK1)
                     {
-                        // anchor at 18:00 EST as before
-                        var anchor = new DateTime(barEst.Year, barEst.Month, barEst.Day, 18, 0, 0);
-                        if (barEst < anchor)
-                            anchor = anchor.AddDays(-1);
+                        // —— interval label above wick in EST ——
+                        DateTime barUtc = bar.TimeLeft.ToUniversalTime();
+                        DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc, estZone);
 
-                        double hrsSince = (barEst - anchor).TotalHours;
-                        int seg = (int)Math.Floor(hrsSince / 4);
-                        var barBucketStart = anchor.AddHours(seg * 4);
-
-                        // **now label the bucket’s END, not its start**:
-                        var bucketEnds = barBucketStart.AddHours(4);
-                        ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
-                    }
-
-                    else if (lowerTf.Contains("hour"))
-                        ivLbl = barEst.Hour.ToString();
-                    else if (lowerTf.Contains("day"))
-                        ivLbl = barEst.DayOfWeek switch
+                        string lowerTf = fullTf.ToLowerInvariant();
+                        string ivLbl;
+                        if (lowerTf.Contains("min"))
+                            ivLbl = barEst.Minute.ToString();
+                        else if (data.Aggregation.GetPeriod == Period.HOUR4)
                         {
-                            DayOfWeek.Monday => "M",
-                            DayOfWeek.Tuesday => "T",
-                            DayOfWeek.Wednesday => "W",
-                            DayOfWeek.Thursday => "T",
-                            DayOfWeek.Friday => "F",
-                            DayOfWeek.Saturday => "S",
-                            DayOfWeek.Sunday => "S",
-                            _ => ""
-                        };
-                    else ivLbl = barEst.Hour.ToString();
+                            // anchor at 18:00 EST as before
+                            var anchor = new DateTime(barEst.Year, barEst.Month, barEst.Day, 18, 0, 0);
+                            if (barEst < anchor)
+                                anchor = anchor.AddDays(-1);
 
-                    var ivSz = g.MeasureString(ivLbl, ivlFont);
-                    float xLbl = xL + (barW - ivSz.Width) / 2f;
-                    float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
-                    g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
+                            double hrsSince = (barEst - anchor).TotalHours;
+                            int seg = (int)Math.Floor(hrsSince / 4);
+                            var barBucketStart = anchor.AddHours(seg * 4);
 
+                            // **now label the bucket’s END, not its start**:
+                            var bucketEnds = barBucketStart.AddHours(4);
+                            ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
+                        }
+
+                        else if (lowerTf.Contains("hour"))
+                            ivLbl = barEst.Hour.ToString();
+                        else if (lowerTf.Contains("day"))
+                            ivLbl = barEst.DayOfWeek switch
+                            {
+                                DayOfWeek.Monday => "M",
+                                DayOfWeek.Tuesday => "T",
+                                DayOfWeek.Wednesday => "W",
+                                DayOfWeek.Thursday => "T",
+                                DayOfWeek.Friday => "F",
+                                DayOfWeek.Saturday => "S",
+                                DayOfWeek.Sunday => "S",
+                                _ => ""
+                            };
+                        else ivLbl = barEst.Hour.ToString();
+
+                        var ivSz = g.MeasureString(ivLbl, ivlFont);
+                        float xLbl = xL + (barW - ivSz.Width) / 2f;
+                        float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
+                        g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
+                    }
                     // wick
                     using var penW = new Pen(isDoji ? DojiWick : (isBull ? IncrWick : DecrWick),
                                              WickWidth);
