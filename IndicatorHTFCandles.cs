@@ -185,24 +185,26 @@ namespace POWER_OF_THREE
 
 
                 var newestBar = (HistoryItemBar)data[0, SeekOriginHistory.End];
-                // compute countdown
+                // compute countdown correctly off the bar's start time:
                 var parts = fullTf.Split('-');
                 int val = int.Parse(parts[0]);
                 string unit = parts[1].ToLowerInvariant();
                 TimeSpan span = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
-                              : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
-                              : unit.StartsWith("day") ? TimeSpan.FromDays(val)
-                              : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
-                              : TimeSpan.Zero;
+                               : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                               : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                               : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                               : TimeSpan.Zero;
 
-                var nextClose = newestBar.TimeLeft.ToUniversalTime().Add(span);
-                var rem = nextClose - DateTime.UtcNow;
-                if (rem < TimeSpan.Zero) rem = TimeSpan.Zero;
-                string cdTxt = $"({rem.Hours:D2}:{rem.Minutes:D2}:{rem.Seconds:D2})";
+                // NEW: use bar.Time instead of TimeLeft
+                string cdTxt = data.GetTimeToNextBar();  // <-- this calls HistoricalData.GetTimeToNextBar()
                 var cdSz = g.MeasureString(cdTxt, labelFont);
-                g.DrawString(cdTxt, labelFont, labelBrush,
-                             blockX + groupW / 2f - cdSz.Width / 2f,
-                             plotArea.Top + 2f + tfSz.Height + 2f);
+                g.DrawString(
+                    cdTxt,
+                    labelFont,
+                    labelBrush,
+                    blockX + groupW / 2f - cdSz.Width / 2f,
+                    plotArea.Top + 2f + tfSz.Height + 2f
+                );
 
                 //
                 // B) Draw candles
