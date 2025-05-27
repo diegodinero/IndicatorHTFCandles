@@ -68,6 +68,7 @@ namespace POWER_OF_THREE
         [InputParameter("Show Volume Imbalances", 42)] public bool ShowVolumeImbalances { get; set; } = true;
         [InputParameter("Volume Imbalance Color", 43)] public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
 
+        private DateTime?[] _lastTfStart = new DateTime?[6];
 
         //—— Internal Storage ————————————————————————————————————————————————
         private readonly HistoricalData[] _hist = new HistoricalData[6];
@@ -99,6 +100,7 @@ namespace POWER_OF_THREE
             if (CurrentChart == null || HistoricalData.Count == 0)
                 return;
 
+
             var g = args.Graphics;
             var conv = CurrentChart
                         .Windows[args.WindowIndex]
@@ -123,13 +125,45 @@ namespace POWER_OF_THREE
                                            IntervalLabelFont.Style);
             using var ivlBrush = new SolidBrush(IntervalLabelColor);
 
-            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
             float cumOff = 0;
 
             // for EST conversions:
             var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
             var nowUtc = DateTime.UtcNow;
             var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
+
+            // bring your TF settings into local arrays:
+            var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5, TFPeriod6 };
+            var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
+            var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5, Candles6 };
+
+            // only reload history when *new* HTF bar appears, not on every repaint:
+            for (int i = 0; i < 6; i++)
+            {
+                if (!usesTF[i] || candlesCount[i] <= 0)
+                    continue;
+
+                var hist = _hist[i];
+                if (hist == null || hist.Count == 0)
+                    continue;
+
+                // start‐time of newest bar we currently have:
+                var newestStart = ((HistoryItemBar)hist[0, SeekOriginHistory.End]).TimeLeft;
+
+                // if it’s different than last time, pull fresh:
+                if (_lastTfStart[i] != newestStart)
+                {
+                    _hist[i] = SymbolExtensions.GetHistory(
+                                  this.Symbol,
+                                  periods[i],
+                                  this.Symbol.HistoryType,
+                                  candlesCount[i]
+                              );
+                    // remember it so we don’t re-pull until the next bar:
+                    _lastTfStart[i] = ((HistoryItemBar)_hist[i][0, SeekOriginHistory.End]).TimeLeft;
+                }
+            }
+
 
             for (int tfIdx = 0; tfIdx < 6; tfIdx++)
             {
