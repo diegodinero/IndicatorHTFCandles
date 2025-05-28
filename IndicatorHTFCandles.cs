@@ -178,7 +178,50 @@ namespace POWER_OF_THREE
                 float blockX = blockR - gW;
 
                 // — (You can reinsert your FVG / volume imbalance blocks here) —
+                if (ShowImbalances)
+                {
+                    for (int k = 0; k < cnt - 2; k++)
+                    {
+                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest
+                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle
+                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest
+                        if (bNew == null || bMid == null || bOld == null)
+                            continue;
 
+                        bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
+                        bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
+                        if (!(bullFVG || bearFVG))
+                            continue;
+
+                        // X coordinate of the *old* bar
+                        int cOld = cnt - 1 - (k + 2);
+                        float xOld = blockX + cOld * stepW;
+
+                        // pick correct Y-bounds so height = (bottom pixel) – (top pixel) ≥ 0
+                        float yTop, yBot;
+                        if (bullFVG)
+                        {
+                            // bullish gap up: new.low > old.high
+                            // on screen: new.low (higher price → smaller Y) is top,
+                            //             old.high (lower price → larger Y) is bottom
+                            yTop = (float)conv.GetChartY(bNew.Low);
+                            yBot = (float)conv.GetChartY(bOld.High);
+                        }
+                        else // bearFVG
+                        {
+                            // bearish gap down: new.high < old.low
+                            // on screen: old.low (higher price → smaller Y) is top,
+                            //             new.high (lower price → larger Y) is bottom
+                            yTop = (float)conv.GetChartY(bOld.Low);
+                            yBot = (float)conv.GetChartY(bNew.High);
+                        }
+
+                        using var brush = new SolidBrush(ImbalanceColor);
+                        // new: covers 3 bars + their inter‐bar spacing
+                        g.FillRectangle(brush, xOld, yTop, stepW * 3, yBot - yTop);
+
+                    }
+                }
                 // — draw each candle oldest→newest —
                 for (int c = 0; c < cnt; c++)
                 {
