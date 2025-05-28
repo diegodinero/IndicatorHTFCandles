@@ -40,7 +40,6 @@ namespace POWER_OF_THREE
         [InputParameter("Candle Spacing (px)", 21)] public int CandleSpacing { get; set; } = 5;
         [InputParameter("Inter-Group Spacing", 22)] public int GroupSpacing { get; set; } = 20;
         [InputParameter("Horizontal Offset", 23)] public int Offset { get; set; } = 0;
-        [InputParameter("Indicator Spacing (px)", 24)] public int IndicatorSpacing { get; set; } = 40;
         [InputParameter("Label Color", 25)] public Color LabelColor { get; set; } = Color.White;
 
         [InputParameter("Decr Fill", 26)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
@@ -77,33 +76,20 @@ namespace POWER_OF_THREE
             SeparateWindow = false;
         }
 
-        protected override void OnInit()
-        {
-            base.OnInit();
-            ReloadHistory();
-        }
-
-        protected override void OnSettingsUpdated()
-        {
-            base.OnSettingsUpdated();
-            ReloadHistory();
-        }
+        protected override void OnInit() { base.OnInit(); ReloadHistory(); }
+        protected override void OnSettingsUpdated() { base.OnSettingsUpdated(); ReloadHistory(); }
 
         private void ReloadHistory()
         {
             var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5, TFPeriod6 };
             var uses = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
-            var candlesCnt = new[] { Candles1, Candles2, Candles3, Candles4, Candles5, Candles6 };
+            var candlesCount = new[] { Candles1, Candles2, Candles3, Candles4, Candles5, Candles6 };
 
             for (int i = 0; i < 6; i++)
             {
-                _hist[i] = uses[i] && candlesCnt[i] > 0
-                           ? SymbolExtensions.GetHistory(
-                                 this.Symbol,
-                                 periods[i],
-                                 this.Symbol.HistoryType,
-                                 candlesCnt[i])
-                           : null;
+                _hist[i] = uses[i] && candlesCount[i] > 0
+                    ? SymbolExtensions.GetHistory(Symbol, periods[i], Symbol.HistoryType, candlesCount[i])
+                    : null;
                 _lastTfStart[i] = null;
             }
         }
@@ -112,8 +98,7 @@ namespace POWER_OF_THREE
         {
             base.OnPaintChart(args);
 
-            if (CurrentChart == null)
-                return;
+            if (CurrentChart == null) return;
 
             var g = args.Graphics;
             var conv = CurrentChart.Windows[args.WindowIndex].CoordinatesConverter;
@@ -121,14 +106,14 @@ namespace POWER_OF_THREE
 
             // sizing
             int rawBw = CurrentChart.BarsWidth;
-            if (rawBw > 5) rawBw = (rawBw % 2 != 0) ? rawBw - 2 : rawBw - 1;
+            if (rawBw > 5) rawBw = rawBw % 2 != 0 ? rawBw - 2 : rawBw;
             float barW = UseCustomBarWidth ? CustomBarWidth : rawBw;
             float stepW = barW + CandleSpacing;
 
-            // anchor off right edge
-            float rightX = plot.Right - Offset;
+            // anchor off left edge
+            float leftX = plot.Left + Offset;
 
-            // refresh each HTF only when its newest bar changes
+            // refresh each HTF on new bar
             var periods = new[] { TFPeriod1, TFPeriod2, TFPeriod3, TFPeriod4, TFPeriod5, TFPeriod6 };
             var usesTF = new[] { UseTF1, UseTF2, UseTF3, UseTF4, UseTF5, UseTF6 };
             var counts = new[] { Candles1, Candles2, Candles3, Candles4, Candles5, Candles6 };
@@ -138,24 +123,17 @@ namespace POWER_OF_THREE
                 if (!usesTF[i] || counts[i] <= 0) continue;
                 var hist = _hist[i];
                 if (hist == null || hist.Count == 0) continue;
-
                 var newest = ((HistoryItemBar)hist[0, SeekOriginHistory.End]).TimeLeft;
                 if (_lastTfStart[i] != newest)
                 {
-                    _hist[i] = SymbolExtensions.GetHistory(this.Symbol,
-                                                                  periods[i],
-                                                                  this.Symbol.HistoryType,
-                                                                  counts[i]);
+                    _hist[i] = SymbolExtensions.GetHistory(Symbol, periods[i], Symbol.HistoryType, counts[i]);
                     _lastTfStart[i] = ((HistoryItemBar)_hist[i][0, SeekOriginHistory.End]).TimeLeft;
                 }
             }
 
-            // if nothing at all
-            if (_hist.All(h => h == null || h.Count == 0))
-                return;
+            if (_hist.All(h => h == null || h.Count == 0)) return;
 
-            // draw block by block, oldest→newest
-            float cumOff = 0f;
+            // prepare countdown
             var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
             var nowUtc = DateTime.UtcNow;
             var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
@@ -165,89 +143,54 @@ namespace POWER_OF_THREE
             using var ivlFont = new Font(IntervalLabelFont.FontFamily, IntervalLabelFont.Size, IntervalLabelFont.Style);
             using var ivlBrush = new SolidBrush(IntervalLabelColor);
 
+            float cumOff = 0f;
             for (int tfIdx = 0; tfIdx < 6; tfIdx++)
             {
+                if (!usesTF[tfIdx]) { cumOff += counts[tfIdx] * stepW + GroupSpacing; continue; }
                 var data = _hist[tfIdx];
-                if (data == null || data.Count == 0)
-                {
-                    cumOff += counts[tfIdx] * stepW + GroupSpacing;
-                    continue;
-                }
+                if (data == null || data.Count == 0) { cumOff += counts[tfIdx] * stepW + GroupSpacing; continue; }
 
                 int cnt = data.Count;
-                float gW = cnt * stepW;
-                float blockR = rightX - cumOff;
-                float blockX = blockR - gW;
+                float groupW = cnt * stepW;
+                float bX = leftX + cumOff;
 
-                // — (You can reinsert your FVG / volume imbalance blocks here) —
+                // — FVG imbalances —
                 if (ShowImbalances)
                 {
                     for (int k = 0; k < cnt - 2; k++)
                     {
-                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar; // newest
-                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar; // middle
-                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar; // oldest
-                        if (bNew == null || bMid == null || bOld == null)
-                            continue;
-
+                        var bNew = data[k, SeekOriginHistory.End] as HistoryItemBar;
+                        var bMid = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;
+                        var bOld = data[k + 2, SeekOriginHistory.End] as HistoryItemBar;
+                        if (bNew == null || bMid == null || bOld == null) continue;
                         bool bullFVG = bNew.Low > bOld.High && bMid.Close > bOld.High;
                         bool bearFVG = bNew.High < bOld.Low && bMid.Close < bOld.Low;
-                        if (!(bullFVG || bearFVG))
-                            continue;
-
-                        // X coordinate of the *old* bar
+                        if (!(bullFVG || bearFVG)) continue;
                         int cOld = cnt - 1 - (k + 2);
-                        float xOld = blockX + cOld * stepW;
-
-                        // pick correct Y-bounds so height = (bottom pixel) – (top pixel) ≥ 0
-                        float yTop, yBot;
-                        if (bullFVG)
-                        {
-                            // bullish gap up: new.low > old.high
-                            // on screen: new.low (higher price → smaller Y) is top,
-                            //             old.high (lower price → larger Y) is bottom
-                            yTop = (float)conv.GetChartY(bNew.Low);
-                            yBot = (float)conv.GetChartY(bOld.High);
-                        }
-                        else // bearFVG
-                        {
-                            // bearish gap down: new.high < old.low
-                            // on screen: old.low (higher price → smaller Y) is top,
-                            //             new.high (lower price → larger Y) is bottom
-                            yTop = (float)conv.GetChartY(bOld.Low);
-                            yBot = (float)conv.GetChartY(bNew.High);
-                        }
-
+                        float xOld = bX + cOld * stepW;
+                        float yTop = bullFVG ? (float)conv.GetChartY(bNew.Low) : (float)conv.GetChartY(bOld.Low);
+                        float yBot = bullFVG ? (float)conv.GetChartY(bOld.High) : (float)conv.GetChartY(bNew.High);
                         using var brush = new SolidBrush(ImbalanceColor);
-                        // new: covers 3 bars + their inter‐bar spacing
                         g.FillRectangle(brush, xOld, yTop, stepW * 3, yBot - yTop);
-
                     }
                 }
 
-                // — A) timeframe label — countdown ——
-                string fullTf = data.Aggregation.GetPeriod.ToString();       // e.g. "4 - Hour"
-                string tfText = Abbreviate(fullTf);
-                var tfSz = g.MeasureString(tfText, lblFont);
-                g.DrawString(
-                    tfText, lblFont, lblBrush,
-                    blockX + gW / 2f - tfSz.Width / 2f,
-                    plot.Top + 2f
-                );
+                // — TF label & countdown —
+                string fullTf = data.Aggregation.GetPeriod.ToString();
+                string tfTxt = Abbreviate(fullTf);
+                var tfSz = g.MeasureString(tfTxt, lblFont);
+                g.DrawString(tfTxt, lblFont, lblBrush, bX + groupW / 2f - tfSz.Width / 2f, plot.Top + 2f);
 
-                // compute countdown to next bucket (in EST)…
                 var parts = fullTf.Split('-');
                 int val = int.Parse(parts[0].Trim());
                 string unit = parts[1].Trim().ToLowerInvariant();
-
-                // determine bucket start in EST
-                DateTime bucketStart;
                 TimeSpan duration = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
-                                 : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
-                                 : unit.StartsWith("day") ? TimeSpan.FromDays(val)
-                                 : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
-                                 : TimeSpan.Zero;
+                                  : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                                  : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                                  : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                                  : TimeSpan.Zero;
 
+                DateTime bucketStart;
                 if (unit.StartsWith("min"))
                 {
                     var hrBase = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, nowEst.Hour, 0, 0);
@@ -258,85 +201,54 @@ namespace POWER_OF_THREE
                 {
                     if (val == 4)
                     {
-                        // 4xHanchored at 18:00 EST
                         var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
                         if (nowEst < anchor) anchor = anchor.AddDays(-1);
                         double hrsSince = (nowEst - anchor).TotalHours;
-                        int seg = (int)Math.Floor(hrsSince / 4);
-                        bucketStart = anchor.AddHours(seg * 4);
+                        bucketStart = anchor.AddHours(Math.Floor(hrsSince / 4) * 4);
                     }
                     else
                     {
-                        // other H anchored at midnight
                         var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 0, 0, 0);
                         double hrsSince = (nowEst - anchor).TotalHours;
-                        int seg = (int)Math.Floor(hrsSince / val);
-                        bucketStart = anchor.AddHours(seg * val);
+                        bucketStart = anchor.AddHours(Math.Floor(hrsSince / val) * val);
                     }
                 }
                 else if (unit.StartsWith("day"))
                 {
-                    // daily at 18:00
                     bucketStart = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
-                    if (nowEst < bucketStart)
-                        bucketStart = bucketStart.AddDays(-1);
+                    if (nowEst < bucketStart) bucketStart = bucketStart.AddDays(-1);
                 }
                 else if (unit.StartsWith("week"))
                 {
-                    // weekly from Sunday 18:00 EST
-                    int dow = (int)nowEst.DayOfWeek;           // Sunday=0…Saturday=6
-                                                               // find last Sunday:
-                    var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0)
-                                     .AddDays(-dow);
-                    if (nowEst < anchor)
-                        anchor = anchor.AddDays(-7);
+                    int dow = (int)nowEst.DayOfWeek;
+                    var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0).AddDays(-dow);
+                    if (nowEst < anchor) anchor = anchor.AddDays(-7);
                     bucketStart = anchor;
                 }
-                else
-                {
-                    bucketStart = nowEst;
-                }
+                else bucketStart = nowEst;
 
                 var bucketEnd = bucketStart + duration;
                 var remaining = bucketEnd - nowEst;
                 if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-                string cdTxt;
-                if (unit.StartsWith("min"))
-                {
-                    // under an hour → MM:SS
-                    cdTxt = $"{remaining.Minutes:D2}:{remaining.Seconds:D2}";
-                }
-                else if (unit.StartsWith("week"))
-                {
-                    // weeks → D-days + HH:MM:SS
-                    cdTxt = $"{remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
-                }
-                else
-                {
-                    // hours, days → HH:MM:SS
-                    cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
-                }
+
+                string cdTxt = unit.StartsWith("min")
+                             ? $"{remaining.Minutes:00}:{remaining.Seconds:00}"
+                             : unit.StartsWith("week")
+                               ? $"{remaining.Days}D {remaining.Hours:00}:{remaining.Minutes:00}:{remaining.Seconds:00}"
+                               : $"{remaining.Hours:00}:{remaining.Minutes:00}:{remaining.Seconds:00}";
 
                 var cdSz = g.MeasureString(cdTxt, lblFont);
-                g.DrawString(
-                    cdTxt,
-                    lblFont,
-                    lblBrush,
-                    blockX + gW / 2f - cdSz.Width / 2f,
-                    plot.Top + 2f + tfSz.Height + 2f
-                );
+                g.DrawString(cdTxt, lblFont, lblBrush, bX + groupW / 2f - cdSz.Width / 2f, plot.Top + 2f + tfSz.Height + 2f);
 
                 // — draw each candle oldest→newest —
                 for (int c = 0; c < cnt; c++)
                 {
-                    // pick the c-th oldest
-                    var bar = data[cnt - 1 - c, SeekOriginHistory.End] as HistoryItemBar;
+                    var bar = data[c, SeekOriginHistory.End] as HistoryItemBar;
                     if (bar == null) continue;
-
                     bool isDoji = bar.Close == bar.Open;
                     bool isBull = bar.Close > bar.Open;
 
-                    float xL = blockX + c * stepW;
+                    float xL = bX + c * stepW;
                     float yH = (float)conv.GetChartY(bar.High);
                     float yL = (float)conv.GetChartY(bar.Low);
                     float yO = (float)conv.GetChartY(bar.Open);
@@ -344,13 +256,12 @@ namespace POWER_OF_THREE
                     float top = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
-                    // — interval label above wick (skip weekly) —
+                    // interval label
                     if (data.Aggregation.GetPeriod != Period.WEEK1)
                     {
                         var barEst = TimeZoneInfo.ConvertTimeFromUtc(bar.TimeLeft.ToUniversalTime(), estZone);
-                        string tfStr = data.Aggregation.GetPeriod.ToString().ToLower();
                         string ivLbl;
-
+                        var tfStr = data.Aggregation.GetPeriod.ToString().ToLower();
                         if (tfStr.Contains("min"))
                             ivLbl = barEst.Minute.ToString("D2");
                         else if (data.Aggregation.GetPeriod == Period.HOUR4)
@@ -362,13 +273,11 @@ namespace POWER_OF_THREE
                         }
                         else if (tfStr.Contains("hour"))
                             ivLbl = barEst.Hour.ToString("D2");
-                        else // day
+                        else
                             ivLbl = barEst.DayOfWeek.ToString().Substring(0, 1);
 
                         var ivSz = g.MeasureString(ivLbl, ivlFont);
-                        float xLbl = xL + (barW - ivSz.Width) / 2f;
-                        float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
-                        g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
+                        g.DrawString(ivLbl, ivlFont, ivlBrush, xL + (barW - ivSz.Width) / 2f, (float)conv.GetChartY(bar.High) - ivSz.Height - 2f);
                     }
 
                     // wick
@@ -378,8 +287,8 @@ namespace POWER_OF_THREE
                     g.DrawLine(penW, mid, top + hgt, mid, yL);
 
                     // body
-                    using var bodyBrush = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill));
-                    g.FillRectangle(bodyBrush, xL, top, barW, hgt);
+                    using var br = new SolidBrush(isDoji ? DojiFill : (isBull ? IncrFill : DecrFill));
+                    g.FillRectangle(br, xL, top, barW, hgt);
 
                     // border
                     if (DrawBorder)
@@ -388,7 +297,8 @@ namespace POWER_OF_THREE
                         g.DrawRectangle(penB, xL, top, barW, hgt);
                     }
                 }
-                // — volume imbalances as before —
+
+                // — volume imbalances —
                 if (ShowVolumeImbalances)
                 {
                     for (int k = 0; k < cnt - 1; k++)
@@ -396,65 +306,36 @@ namespace POWER_OF_THREE
                         var b1 = data[k, SeekOriginHistory.End] as HistoryItemBar;
                         var b2 = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;
                         if (b1 == null || b2 == null) continue;
-
-                        bool bullVI = b1.Low < b2.High
-                                   && Math.Min(b1.Open, b1.Close)
-                                      > Math.Max(b2.Open, b2.Close);
-                        bool bearVI = b1.High > b2.Low
-                                   && Math.Max(b1.Open, b1.Close)
-                                      < Math.Min(b2.Open, b2.Close);
+                        bool bullVI = b1.Low < b2.High && Math.Min(b1.Open, b1.Close) > Math.Max(b2.Open, b2.Close);
+                        bool bearVI = b1.High > b2.Low && Math.Max(b1.Open, b1.Close) < Math.Min(b2.Open, b2.Close);
                         if (!(bullVI || bearVI)) continue;
 
-                        int c1 = cnt - 1 - k;
-                        int c2 = cnt - 1 - (k + 1);
-                        float x1 = blockX + c2 * stepW;
-                        float x2 = blockX + c1 * stepW + barW;
-                        float yT = (float)conv.GetChartY(
-                                     bearVI
-                                     ? Math.Min(b2.Open, b2.Close)
-                                     : Math.Min(b1.Open, b1.Close));
-                        float yB = (float)conv.GetChartY(
-                                     bearVI
-                                     ? Math.Max(b1.Open, b1.Close)
-                                     : Math.Max(b2.Open, b2.Close));
+                        int c1 = k, c2 = k + 1;
+                        float x1 = bX + c1 * stepW;
+                        float x2 = bX + c2 * stepW + barW;
+                        float yT = (float)conv.GetChartY(bearVI ? Math.Min(b2.Open, b2.Close) : Math.Min(b1.Open, b1.Close));
+                        float yB = (float)conv.GetChartY(bearVI ? Math.Max(b1.Open, b1.Close) : Math.Max(b2.Open, b2.Close));
 
                         using var vb = new SolidBrush(VolumeImbalanceColor);
-                        g.FillRectangle(vb, x1, yT,
-                                        x2 - x1, yB - yT);
+                        g.FillRectangle(vb, x1, yT, x2 - x1, yB - yT);
                     }
                 }
-                cumOff += gW + GroupSpacing;
+
+                cumOff += groupW + GroupSpacing;
             }
         }
 
-        /// <summary>
-        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
-        /// </summary>
-        /// <summary>
-        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
-        /// </summary>
         private string Abbreviate(string fullPeriod)
         {
-            if (string.IsNullOrEmpty(fullPeriod))
-                return fullPeriod;
-
-            // split on the ASCII hyphen-minus
+            if (string.IsNullOrEmpty(fullPeriod)) return fullPeriod;
             var parts = fullPeriod.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 2)
-                return fullPeriod.Trim();
-
-            var value = parts[0].Trim();           // e.g. "5", "1"
-            var unit = parts[1].Trim().ToLower();  // e.g. "minute", "hour", ...
-
-            if (unit.StartsWith("min"))
-                return value + "m";
-            if (unit.StartsWith("hour"))
-                return value + "H";
-            if (unit.StartsWith("day"))
-                return value + "D";
-            if (unit.StartsWith("week"))
-                return value + "W";
-
+            if (parts.Length != 2) return fullPeriod.Trim();
+            var value = parts[0].Trim();
+            var unit = parts[1].Trim().ToLower();
+            if (unit.StartsWith("min")) return value + "m";
+            if (unit.StartsWith("hour")) return value + "H";
+            if (unit.StartsWith("day")) return value + "D";
+            if (unit.StartsWith("week")) return value + "W";
             return fullPeriod.Trim();
         }
     }
