@@ -157,6 +157,8 @@ namespace POWER_OF_THREE
             // draw block by block, oldest→newest
             float cumOff = 0f;
             var estZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            var nowUtc = DateTime.UtcNow;
+            var nowEst = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, estZone);
 
             using var lblFont = new Font("Tahoma", 8f);
             using var lblBrush = new SolidBrush(LabelColor);
@@ -222,6 +224,108 @@ namespace POWER_OF_THREE
 
                     }
                 }
+
+                // — A) timeframe label — countdown ——
+                string fullTf = data.Aggregation.GetPeriod.ToString();       // e.g. "4 - Hour"
+                string tfText = Abbreviate(fullTf);
+                var tfSz = g.MeasureString(tfText, lblFont);
+                g.DrawString(
+                    tfText, lblFont, lblBrush,
+                    blockX + gW / 2f - tfSz.Width / 2f,
+                    plot.Top + 2f
+                );
+
+                // compute countdown to next bucket (in EST)…
+                var parts = fullTf.Split('-');
+                int val = int.Parse(parts[0].Trim());
+                string unit = parts[1].Trim().ToLowerInvariant();
+
+                // determine bucket start in EST
+                DateTime bucketStart;
+                TimeSpan duration = unit.StartsWith("min") ? TimeSpan.FromMinutes(val)
+                                 : unit.StartsWith("hour") ? TimeSpan.FromHours(val)
+                                 : unit.StartsWith("day") ? TimeSpan.FromDays(val)
+                                 : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
+                                 : TimeSpan.Zero;
+
+                if (unit.StartsWith("min"))
+                {
+                    var hrBase = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, nowEst.Hour, 0, 0);
+                    int segMin = (nowEst.Minute / val) * val;
+                    bucketStart = hrBase.AddMinutes(segMin);
+                }
+                else if (unit.StartsWith("hour"))
+                {
+                    if (val == 4)
+                    {
+                        // 4xHanchored at 18:00 EST
+                        var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
+                        if (nowEst < anchor) anchor = anchor.AddDays(-1);
+                        double hrsSince = (nowEst - anchor).TotalHours;
+                        int seg = (int)Math.Floor(hrsSince / 4);
+                        bucketStart = anchor.AddHours(seg * 4);
+                    }
+                    else
+                    {
+                        // other H anchored at midnight
+                        var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 0, 0, 0);
+                        double hrsSince = (nowEst - anchor).TotalHours;
+                        int seg = (int)Math.Floor(hrsSince / val);
+                        bucketStart = anchor.AddHours(seg * val);
+                    }
+                }
+                else if (unit.StartsWith("day"))
+                {
+                    // daily at 18:00
+                    bucketStart = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
+                    if (nowEst < bucketStart)
+                        bucketStart = bucketStart.AddDays(-1);
+                }
+                else if (unit.StartsWith("week"))
+                {
+                    // weekly from Sunday 18:00 EST
+                    int dow = (int)nowEst.DayOfWeek;           // Sunday=0…Saturday=6
+                                                               // find last Sunday:
+                    var anchor = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0)
+                                     .AddDays(-dow);
+                    if (nowEst < anchor)
+                        anchor = anchor.AddDays(-7);
+                    bucketStart = anchor;
+                }
+                else
+                {
+                    bucketStart = nowEst;
+                }
+
+                var bucketEnd = bucketStart + duration;
+                var remaining = bucketEnd - nowEst;
+                if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+                string cdTxt;
+                if (unit.StartsWith("min"))
+                {
+                    // under an hour → MM:SS
+                    cdTxt = $"{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+                else if (unit.StartsWith("week"))
+                {
+                    // weeks → D-days + HH:MM:SS
+                    cdTxt = $"{remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+                else
+                {
+                    // hours, days → HH:MM:SS
+                    cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                }
+
+                var cdSz = g.MeasureString(cdTxt, lblFont);
+                g.DrawString(
+                    cdTxt,
+                    lblFont,
+                    lblBrush,
+                    blockX + gW / 2f - cdSz.Width / 2f,
+                    plot.Top + 2f + tfSz.Height + 2f
+                );
+
                 // — draw each candle oldest→newest —
                 for (int c = 0; c < cnt; c++)
                 {
@@ -321,6 +425,37 @@ namespace POWER_OF_THREE
                 }
                 cumOff += gW + GroupSpacing;
             }
+        }
+
+        /// <summary>
+        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
+        /// </summary>
+        /// <summary>
+        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
+        /// </summary>
+        private string Abbreviate(string fullPeriod)
+        {
+            if (string.IsNullOrEmpty(fullPeriod))
+                return fullPeriod;
+
+            // split on the ASCII hyphen-minus
+            var parts = fullPeriod.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2)
+                return fullPeriod.Trim();
+
+            var value = parts[0].Trim();           // e.g. "5", "1"
+            var unit = parts[1].Trim().ToLower();  // e.g. "minute", "hour", ...
+
+            if (unit.StartsWith("min"))
+                return value + "m";
+            if (unit.StartsWith("hour"))
+                return value + "H";
+            if (unit.StartsWith("day"))
+                return value + "D";
+            if (unit.StartsWith("week"))
+                return value + "W";
+
+            return fullPeriod.Trim();
         }
     }
 }
