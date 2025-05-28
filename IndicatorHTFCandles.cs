@@ -284,7 +284,41 @@ namespace POWER_OF_THREE
                         g.DrawRectangle(penB, xL, top, barW, hgt);
                     }
                 }
+                // — volume imbalances as before —
+                if (ShowVolumeImbalances)
+                {
+                    for (int k = 0; k < cnt - 1; k++)
+                    {
+                        var b1 = data[k, SeekOriginHistory.End] as HistoryItemBar;
+                        var b2 = data[k + 1, SeekOriginHistory.End] as HistoryItemBar;
+                        if (b1 == null || b2 == null) continue;
 
+                        bool bullVI = b1.Low < b2.High
+                                   && Math.Min(b1.Open, b1.Close)
+                                      > Math.Max(b2.Open, b2.Close);
+                        bool bearVI = b1.High > b2.Low
+                                   && Math.Max(b1.Open, b1.Close)
+                                      < Math.Min(b2.Open, b2.Close);
+                        if (!(bullVI || bearVI)) continue;
+
+                        int c1 = cnt - 1 - k;
+                        int c2 = cnt - 1 - (k + 1);
+                        float x1 = blockX + c2 * stepW;
+                        float x2 = blockX + c1 * stepW + barW;
+                        float yT = (float)conv.GetChartY(
+                                     bearVI
+                                     ? Math.Min(b2.Open, b2.Close)
+                                     : Math.Min(b1.Open, b1.Close));
+                        float yB = (float)conv.GetChartY(
+                                     bearVI
+                                     ? Math.Max(b1.Open, b1.Close)
+                                     : Math.Max(b2.Open, b2.Close));
+
+                        using var vb = new SolidBrush(VolumeImbalanceColor);
+                        g.FillRectangle(vb, x1, yT,
+                                        x2 - x1, yB - yT);
+                    }
+                }
                 cumOff += gW + GroupSpacing;
             }
         }
