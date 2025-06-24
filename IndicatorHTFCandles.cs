@@ -316,17 +316,17 @@ namespace POWER_OF_THREE
                 if (unit.StartsWith("min"))
                 {
                     // under an hour → MM:SS
-                    cdTxt = $"{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                    cdTxt = $"({remaining.Minutes:D2}:{remaining.Seconds:D2})";
                 }
                 else if (unit.StartsWith("week"))
                 {
                     // weeks → D-days + HH:MM:SS
-                    cdTxt = $"{remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                    cdTxt = $"({remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2})";
                 }
                 else
                 {
                     // hours, days → HH:MM:SS
-                    cdTxt = $"{remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+                    cdTxt = $"({remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2})";
                 }
 
                 var cdSz = g.MeasureString(cdTxt, lblFont);
