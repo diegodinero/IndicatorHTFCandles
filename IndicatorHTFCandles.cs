@@ -125,7 +125,7 @@ namespace POWER_OF_THREE
             float baseX = lastX + stepW + Offset + IndicatorSpacing;
 
             using var tfFont = new Font("Tahoma", 12f, FontStyle.Bold);   // for the timeframe label
-            using var cdFont = new Font("Tahoma", 10f, FontStyle.Bold);   // for the countdown
+            using var cdFont = new Font("Tahoma", 9f, FontStyle.Bold);   // for the countdown
             using var lblBrush = new SolidBrush(LabelColor);
             using var ivlFont = new Font(IntervalLabelFont.FontFamily,
                                            IntervalLabelFont.Size,
@@ -323,8 +323,10 @@ namespace POWER_OF_THREE
 
                 if (unit.StartsWith("min"))
                 {
-                    // always MM:SS
-                    cdTxt = $"({minutes:D2}:{seconds:D2})";
+                    if (minutes > 0)
+                        cdTxt = $"({minutes:D2}:{seconds:D2})";   // e.g. (01:23)
+                    else
+                        cdTxt = $"({seconds:D2})";                // e.g. (40)
                 }
                 else if (unit.StartsWith("week"))
                 {
