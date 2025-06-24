@@ -124,7 +124,8 @@ namespace POWER_OF_THREE
             float lastX = (float)conv.GetChartX(lastTime);
             float baseX = lastX + stepW + Offset + IndicatorSpacing;
 
-            using var lblFont = new Font("Tahoma", 8f);
+            using var tfFont = new Font("Tahoma", 12f, FontStyle.Bold);   // for the timeframe label
+            using var cdFont = new Font("Tahoma", 10f, FontStyle.Bold);   // for the countdown
             using var lblBrush = new SolidBrush(LabelColor);
             using var ivlFont = new Font(IntervalLabelFont.FontFamily,
                                            IntervalLabelFont.Size,
@@ -240,9 +241,11 @@ namespace POWER_OF_THREE
                 // — A) timeframe label — countdown ——
                 string fullTf = data.Aggregation.GetPeriod.ToString();       // e.g. "4 - Hour"
                 string tfText = Abbreviate(fullTf);
-                var tfSz = g.MeasureString(tfText, lblFont);
+                var tfSz = g.MeasureString(tfText, tfFont);
                 g.DrawString(
-                    tfText, lblFont, lblBrush,
+                    tfText,
+                    tfFont,
+                    lblBrush,
                     blockX + gW / 2f - tfSz.Width / 2f,
                     plot.Top + 2f
                 );
@@ -313,26 +316,48 @@ namespace POWER_OF_THREE
                 var remaining = bucketEnd - nowEst;
                 if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
                 string cdTxt;
+                int days = remaining.Days;
+                int hours = remaining.Hours;
+                int minutes = remaining.Minutes;
+                int seconds = remaining.Seconds;
+
                 if (unit.StartsWith("min"))
                 {
-                    // under an hour → MM:SS
-                    cdTxt = $"({remaining.Minutes:D2}:{remaining.Seconds:D2})";
+                    // always MM:SS
+                    cdTxt = $"({minutes:D2}:{seconds:D2})";
                 }
                 else if (unit.StartsWith("week"))
                 {
-                    // weeks → D-days + HH:MM:SS
-                    cdTxt = $"({remaining.Days}D {remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2})";
+                    // Weekly: include days only if >0, hours only if >0 (or if days>0)
+                    if (days > 0)
+                    {
+                        if (hours > 0)
+                            cdTxt = $"({days}D {hours:D2}:{minutes:D2}:{seconds:D2})";
+                        else
+                            cdTxt = $"({days}D {minutes:D2}:{seconds:D2})";
+                    }
+                    else
+                    {
+                        // no days
+                        if (hours > 0)
+                            cdTxt = $"({hours:D2}:{minutes:D2}:{seconds:D2})";
+                        else
+                            cdTxt = $"({minutes:D2}:{seconds:D2})";
+                    }
                 }
                 else
                 {
-                    // hours, days → HH:MM:SS
-                    cdTxt = $"({remaining.Hours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2})";
+                    // hours/days bucket (non-minute, non-week): omit hours if zero
+                    if (hours > 0)
+                        cdTxt = $"({hours:D2}:{minutes:D2}:{seconds:D2})";
+                    else
+                        cdTxt = $"({minutes:D2}:{seconds:D2})";
                 }
 
-                var cdSz = g.MeasureString(cdTxt, lblFont);
+                var cdSz = g.MeasureString(cdTxt, cdFont);
                 g.DrawString(
                     cdTxt,
-                    lblFont,
+                    cdFont,
                     lblBrush,
                     blockX + gW / 2f - cdSz.Width / 2f,
                     plot.Top + 2f + tfSz.Height + 2f
