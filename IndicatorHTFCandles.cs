@@ -414,13 +414,13 @@ namespace POWER_OF_THREE
                         else if (lowerTf.Contains("day"))
                             ivLbl = barEst.DayOfWeek switch
                             {
-                                DayOfWeek.Monday => "M",
-                                DayOfWeek.Tuesday => "T",
-                                DayOfWeek.Wednesday => "W",
-                                DayOfWeek.Thursday => "T",
-                                DayOfWeek.Friday => "F",
+                                DayOfWeek.Monday => "T",
+                                DayOfWeek.Tuesday => "W",
+                                DayOfWeek.Wednesday => "T",
+                                DayOfWeek.Thursday => "F",
+                                DayOfWeek.Friday => "S",
                                 DayOfWeek.Saturday => "S",
-                                DayOfWeek.Sunday => "S",
+                                DayOfWeek.Sunday => "M",  // treat Sunday as Monday
                                 _ => ""
                             };
                         else ivLbl = barEst.Hour.ToString();
