@@ -68,6 +68,10 @@ namespace POWER_OF_THREE
         [InputParameter("Show Volume Imbalances", 42)] public bool ShowVolumeImbalances { get; set; } = true;
         [InputParameter("Volume Imbalance Color", 43)] public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
 
+        [InputParameter("H4 Countdown Respects 5 PM Close", 44)]
+        public bool H4RespectDailyClose { get; set; } = true;
+
+
         private DateTime?[] _lastTfStart = new DateTime?[6];
 
         //—— Internal Storage ————————————————————————————————————————————————
@@ -263,12 +267,14 @@ namespace POWER_OF_THREE
                                  : unit.StartsWith("week") ? TimeSpan.FromDays(7 * val)
                                  : TimeSpan.Zero;
 
+
                 if (unit.StartsWith("min"))
                 {
                     var hrBase = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, nowEst.Hour, 0, 0);
                     int segMin = (nowEst.Minute / val) * val;
                     bucketStart = hrBase.AddMinutes(segMin);
                 }
+
                 else if (unit.StartsWith("hour"))
                 {
                     if (val == 4)
@@ -289,13 +295,18 @@ namespace POWER_OF_THREE
                         bucketStart = anchor.AddHours(seg * val);
                     }
                 }
+                
                 else if (unit.StartsWith("day"))
                 {
-                    // daily at 18:00
-                    bucketStart = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 18, 0, 0);
-                    if (nowEst < bucketStart)
-                        bucketStart = bucketStart.AddDays(-1);
+                    // Daily candle aligned to 17:00 ET (5:00 PM)
+                    var todayClose = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, 17, 0, 0);
+
+                    // Most recent 17:00 boundary = current bucket start
+                    bucketStart = (nowEst >= todayClose)
+                        ? todayClose            // after 5pm → today 17:00
+                        : todayClose.AddDays(-1); // before 5pm → yesterday 17:00
                 }
+
                 else if (unit.StartsWith("week"))
                 {
                     // weekly from Sunday 18:00 EST
