@@ -404,7 +404,7 @@ namespace POWER_OF_THREE
                         string ivLbl;
                         if (lowerTf.Contains("min"))
                             ivLbl = barEst.Minute.ToString();
-                        else if (data.Aggregation.GetPeriod == Period.HOUR4)
+                        else if (lowerTf.Contains("4") && lowerTf.Contains("hour"))
                         {
                             // anchor at 18:00 EST as before
                             var anchor = new DateTime(barEst.Year, barEst.Month, barEst.Day, 18, 0, 0);
