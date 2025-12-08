@@ -400,11 +400,14 @@ namespace POWER_OF_THREE
                         DateTime barUtc = bar.TimeLeft.ToUniversalTime();
                         DateTime barEst = TimeZoneInfo.ConvertTimeFromUtc(barUtc, estZone);
 
-                        string lowerTf = fullTf.ToLowerInvariant();
+                        var labelParts = fullTf.Split('-');
+                        int labelVal = int.Parse(labelParts[0].Trim());
+                        string labelUnit = labelParts[1].Trim().ToLowerInvariant();
+                        
                         string ivLbl;
-                        if (lowerTf.Contains("min"))
+                        if (labelUnit.StartsWith("min"))
                             ivLbl = barEst.Minute.ToString();
-                        else if (lowerTf.StartsWith("4 ") && lowerTf.Contains("hour"))
+                        else if (labelUnit.StartsWith("hour") && labelVal == 4)
                         {
                             // anchor at 18:00 EST as before
                             var anchor = new DateTime(barEst.Year, barEst.Month, barEst.Day, 18, 0, 0);
@@ -420,9 +423,9 @@ namespace POWER_OF_THREE
                             ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
                         }
 
-                        else if (lowerTf.Contains("hour"))
+                        else if (labelUnit.StartsWith("hour"))
                             ivLbl = barEst.Hour.ToString();
-                        else if (lowerTf.Contains("day"))
+                        else if (labelUnit.StartsWith("day"))
                             ivLbl = barEst.DayOfWeek switch
                             {
                                 DayOfWeek.Monday => "T",
