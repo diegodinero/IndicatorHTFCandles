@@ -511,9 +511,6 @@ namespace POWER_OF_THREE
         /// <summary>
         /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
         /// </summary>
-        /// <summary>
-        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
-        /// </summary>
         private string Abbreviate(string fullPeriod)
         {
             if (string.IsNullOrEmpty(fullPeriod))
