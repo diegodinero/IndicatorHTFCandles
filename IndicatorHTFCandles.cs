@@ -41,34 +41,35 @@ namespace POWER_OF_THREE
         [InputParameter("Candle Spacing (px)", 21)] public int CandleSpacing { get; set; } = 5;
         [InputParameter("Inter-Group Spacing", 22)] public int GroupSpacing { get; set; } = 20;
         [InputParameter("Horizontal Offset", 23)] public int Offset { get; set; } = 0;
-        [InputParameter("Indicator Spacing (px)", 24)] public int IndicatorSpacing { get; set; } = 40;
-        [InputParameter("Label Color", 25)] public Color LabelColor { get; set; } = Color.White;
+        [InputParameter("Vertical Offset (px)", 24)] public int VerticalOffset { get; set; } = 0;
+        [InputParameter("Indicator Spacing (px)", 25)] public int IndicatorSpacing { get; set; } = 40;
+        [InputParameter("Label Color", 26)] public Color LabelColor { get; set; } = Color.White;
 
-        [InputParameter("Decr Fill", 26)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
-        [InputParameter("Incr Fill", 27)] public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
-        [InputParameter("Doji Fill", 28)] public Color DojiFill { get; set; } = Color.Gray;
+        [InputParameter("Decr Fill", 27)] public Color DecrFill { get; set; } = Color.FromArgb(230, 0xF2, 0x36, 0x45);
+        [InputParameter("Incr Fill", 28)] public Color IncrFill { get; set; } = Color.FromArgb(230, 0x4C, 0xAF, 0x50);
+        [InputParameter("Doji Fill", 29)] public Color DojiFill { get; set; } = Color.Gray;
 
-        [InputParameter("Draw Border", 29)] public bool DrawBorder { get; set; } = true;
-        [InputParameter("Border Width", 30)] public int BorderWidth { get; set; } = 1;
-        [InputParameter("Decr Border", 31)] public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Incr Border", 32)] public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Doji Border", 33)] public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Draw Border", 30)] public bool DrawBorder { get; set; } = true;
+        [InputParameter("Border Width", 31)] public int BorderWidth { get; set; } = 1;
+        [InputParameter("Decr Border", 32)] public Color DecrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Border", 33)] public Color IncrBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Border", 34)] public Color DojiBorder { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Wick Width", 34)] public int WickWidth { get; set; } = 1;
-        [InputParameter("Decr Wick", 35)] public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Incr Wick", 36)] public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
-        [InputParameter("Doji Wick", 37)] public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Wick Width", 35)] public int WickWidth { get; set; } = 1;
+        [InputParameter("Decr Wick", 36)] public Color DecrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Incr Wick", 37)] public Color IncrWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Doji Wick", 38)] public Color DojiWick { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Label Font", 38)] public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
-        [InputParameter("Interval Label Color", 39)] public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
+        [InputParameter("Label Font", 39)] public Font IntervalLabelFont { get; set; } = new Font("Tahoma", 8f);
+        [InputParameter("Interval Label Color", 40)] public Color IntervalLabelColor { get; set; } = Color.FromArgb(230, 0x36, 0x3A, 0x45);
 
-        [InputParameter("Show FVG Imbalances", 40)] public bool ShowImbalances { get; set; } = true;
-        [InputParameter("Imbalance Color", 41)] public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
+        [InputParameter("Show FVG Imbalances", 41)] public bool ShowImbalances { get; set; } = true;
+        [InputParameter("Imbalance Color", 42)] public Color ImbalanceColor { get; set; } = Color.FromArgb(51, 0x78, 0x7B, 0x86);
 
-        [InputParameter("Show Volume Imbalances", 42)] public bool ShowVolumeImbalances { get; set; } = true;
-        [InputParameter("Volume Imbalance Color", 43)] public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
+        [InputParameter("Show Volume Imbalances", 43)] public bool ShowVolumeImbalances { get; set; } = true;
+        [InputParameter("Volume Imbalance Color", 44)] public Color VolumeImbalanceColor { get; set; } = Color.FromArgb(180, 0xFF, 0x00, 0x00);
 
-        [InputParameter("H4 Countdown Respects 5 PM Close", 44)]
+        [InputParameter("H4 Countdown Respects 5 PM Close", 45)]
         public bool H4RespectDailyClose { get; set; } = true;
 
 
@@ -222,16 +223,16 @@ namespace POWER_OF_THREE
                             // bullish gap up: new.low > old.high
                             // on screen: new.low (higher price → smaller Y) is top,
                             //             old.high (lower price → larger Y) is bottom
-                            yTop = (float)conv.GetChartY(bNew.Low);
-                            yBot = (float)conv.GetChartY(bOld.High);
+                            yTop = (float)conv.GetChartY(bNew.Low) + VerticalOffset;
+                            yBot = (float)conv.GetChartY(bOld.High) + VerticalOffset;
                         }
                         else // bearFVG
                         {
                             // bearish gap down: new.high < old.low
                             // on screen: old.low (higher price → smaller Y) is top,
                             //             new.high (lower price → larger Y) is bottom
-                            yTop = (float)conv.GetChartY(bOld.Low);
-                            yBot = (float)conv.GetChartY(bNew.High);
+                            yTop = (float)conv.GetChartY(bOld.Low) + VerticalOffset;
+                            yBot = (float)conv.GetChartY(bNew.High) + VerticalOffset;
                         }
 
                         using var brush = new SolidBrush(ImbalanceColor);
@@ -251,7 +252,7 @@ namespace POWER_OF_THREE
                     tfFont,
                     lblBrush,
                     blockX + gW / 2f - tfSz.Width / 2f,
-                    plot.Top + 2f
+                    plot.Top + 2f + VerticalOffset
                 );
 
                 // compute countdown to next bucket (in EST)…
@@ -373,7 +374,7 @@ namespace POWER_OF_THREE
                     cdFont,
                     lblBrush,
                     blockX + gW / 2f - cdSz.Width / 2f,
-                    plot.Top + 2f + tfSz.Height + 2f
+                    plot.Top + 2f + tfSz.Height + 2f + VerticalOffset
                 );
 
 
@@ -387,10 +388,10 @@ namespace POWER_OF_THREE
                     bool isBull = bar.Close > bar.Open;
 
                     float xL = blockX + c * stepW;
-                    float yH = (float)conv.GetChartY(bar.High);
-                    float yL = (float)conv.GetChartY(bar.Low);
-                    float yO = (float)conv.GetChartY(bar.Open);
-                    float yC = (float)conv.GetChartY(bar.Close);
+                    float yH = (float)conv.GetChartY(bar.High) + VerticalOffset;
+                    float yL = (float)conv.GetChartY(bar.Low) + VerticalOffset;
+                    float yO = (float)conv.GetChartY(bar.Open) + VerticalOffset;
+                    float yC = (float)conv.GetChartY(bar.Close) + VerticalOffset;
                     float topBody = isDoji ? yC : Math.Min(yO, yC);
                     float hgt = isDoji ? 1f : Math.Abs(yC - yO);
 
@@ -418,9 +419,8 @@ namespace POWER_OF_THREE
                             int seg = (int)Math.Floor(hrsSince / 4);
                             var barBucketStart = anchor.AddHours(seg * 4);
 
-                            // **now label the bucket’s END, not its start**:
-                            var bucketEnds = barBucketStart.AddHours(4);
-                            ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
+                            // Label shows bucket START time
+                            ivLbl = barBucketStart.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
                         }
 
                         else if (labelUnit.StartsWith("hour"))
@@ -441,7 +441,7 @@ namespace POWER_OF_THREE
 
                         var ivSz = g.MeasureString(ivLbl, ivlFont);
                         float xLbl = xL + (barW - ivSz.Width) / 2f;
-                        float yLbl = (float)conv.GetChartY(bar.High) - ivSz.Height - 2f;
+                        float yLbl = (float)conv.GetChartY(bar.High) + VerticalOffset - ivSz.Height - 2f;
                         g.DrawString(ivLbl, ivlFont, ivlBrush, xLbl, yLbl);
                     }
                     // wick
@@ -490,11 +490,11 @@ namespace POWER_OF_THREE
                         float yT = (float)conv.GetChartY(
                                      bearVI
                                      ? Math.Min(b2.Open, b2.Close)
-                                     : Math.Min(b1.Open, b1.Close));
+                                     : Math.Min(b1.Open, b1.Close)) + VerticalOffset;
                         float yB = (float)conv.GetChartY(
                                      bearVI
                                      ? Math.Max(b1.Open, b1.Close)
-                                     : Math.Max(b2.Open, b2.Close));
+                                     : Math.Max(b2.Open, b2.Close)) + VerticalOffset;
 
                         using var vb = new SolidBrush(VolumeImbalanceColor);
                         g.FillRectangle(vb, x1, yT,
@@ -507,9 +507,6 @@ namespace POWER_OF_THREE
         }
 
 
-        /// <summary>
-        /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
-        /// </summary>
         /// <summary>
         /// Turn “5 - Minute” → “5m”, “1 - Hour” → “1H”, “1 - Day” → “1D”, “1 - Week” → “1W”
         /// </summary>
