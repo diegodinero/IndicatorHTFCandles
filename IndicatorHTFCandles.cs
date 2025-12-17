@@ -419,9 +419,8 @@ namespace POWER_OF_THREE
                             int seg = (int)Math.Floor(hrsSince / 4);
                             var barBucketStart = anchor.AddHours(seg * 4);
 
-                            // **now label the bucket’s END, not its start**:
-                            var bucketEnds = barBucketStart.AddHours(4);
-                            ivLbl = bucketEnds.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
+                            // Label shows bucket START time
+                            ivLbl = barBucketStart.Hour.ToString();  // 18, 22, 02, 06, 10, 14 …
                         }
 
                         else if (labelUnit.StartsWith("hour"))
